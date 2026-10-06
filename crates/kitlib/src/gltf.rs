@@ -348,3 +348,40 @@ pub fn glb_json(glb: &[u8]) -> String {
 	let length = u32::from_le_bytes([glb[12], glb[13], glb[14], glb[15]]) as usize;
 	String::from_utf8_lossy(&glb[20..20 + length]).trim_end_matches(' ').to_string()
 }
+
+/// (width, height, channels, pixels) of a PNG this writer made (8-bit RGB or RGBA, unfiltered rows).
+pub fn decode_png(data: &[u8]) -> Result<(usize, usize, usize, Vec<u8>), String> {
+	if data.len() < 8 || &data[..8] != b"\x89PNG\r\n\x1a\n" {
+		return Err("not a PNG".into());
+	}
+	let (mut pos, mut idat, mut width, mut height, mut channels) = (8, Vec::new(), 0, 0, 3);
+	while pos + 8 <= data.len() {
+		let length = u32::from_be_bytes([data[pos], data[pos + 1], data[pos + 2], data[pos + 3]]) as usize;
+		let kind = &data[pos + 4..pos + 8];
+		let body = &data[pos + 8..pos + 8 + length];
+		match kind {
+			b"IHDR" => {
+				width = u32::from_be_bytes([body[0], body[1], body[2], body[3]]) as usize;
+				height = u32::from_be_bytes([body[4], body[5], body[6], body[7]]) as usize;
+				channels = match body[9] {
+					2 => 3,
+					6 => 4,
+					other => return Err(format!("colour type {other}")),
+				};
+			}
+			b"IDAT" => idat.extend_from_slice(body),
+			_ => {}
+		}
+		pos += 12 + length;
+	}
+	let rows = miniz_oxide::inflate::decompress_to_vec_zlib(&idat).map_err(|e| format!("{e:?}"))?;
+	let stride = width * channels + 1;
+	let mut pixels = Vec::with_capacity(width * height * channels);
+	for row in rows.chunks(stride).take(height) {
+		if row[0] != 0 {
+			return Err("filtered rows are not supported".into());
+		}
+		pixels.extend_from_slice(&row[1..]);
+	}
+	Ok((width, height, channels, pixels))
+}

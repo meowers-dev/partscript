@@ -16,12 +16,12 @@ use crate::lang::{
 use crate::ordered::Ordered;
 use crate::value::{Bounds, Env, Value};
 
-const COMMON_OPTIONS: [&str; 22] = [
+pub const COMMON_OPTIONS: [&str; 22] = [
 	"r", "when", "fade", "wobble", "twist", "bend", "shrink", "index", "jit", "hang", "along", "every", "fit", "closed", "joints", "corners", "smooth",
 	"shade", "on", "drop", "facing", "sink",
 ];
 
-fn shape_options(op: &str) -> Option<&'static [&'static str]> {
+pub fn shape_options(op: &str) -> Option<&'static [&'static str]> {
 	Some(match op {
 		"b" => &["skip", "taper", "lean", "from", "to", "break", "chunk", "core", "rubble"],
 		"bb" => &["taper", "lean", "from", "to"],
