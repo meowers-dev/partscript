@@ -1,7 +1,15 @@
 //! kitlib: low-poly geometry, baking and a .glb writer. PartScript compiles to it.
 
+pub mod bake;
+pub mod geom;
+pub mod gltf;
 pub mod hash;
+pub mod maths;
+pub mod noise;
+pub mod paths;
 pub mod py;
+pub mod ruin;
+pub mod surface;
 pub mod json;
 
 /// The bytes of a gzip file (one member, as Python's gzip.compress writes it).

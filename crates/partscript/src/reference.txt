@@ -1,0 +1,208 @@
+PartScript: low-poly props in a few words (partscript.dev)
+
+TWO FORMS: every shape line can name its arguments (box at=0,0,on size=.4 mat=wood turn=0,0,45 repeat 5 every .3,0,0)
+or give them in order (b 0,0,~ .4 wood r=0,0,45 *5@.3,0,0); partscript fmt rewrites a file either way. Long names:
+  box b, bevel_box bb, box_between bx, cylinder c, sphere sph, panel pan, extrude ext, group at, decal trim, arch_wall
+  arguments: at= size= mat= bevel= from= to= radius= height= width= depth= inner= rise= thick= cell= text= (points="..." for
+  outlines);  options: turn= (r) sides= (s on round shapes) scale= (s on use and group) top_radius= (rt) axis= (ax) jitter= (jit)
+  copies: repeat N every V (*N@V)  grid AxB every V  ring N [step D] (*N%D)  scatter N over W,D [apart G] / within R (*N~)
+          mirror x|y|z|xy... (mx my mz);  on / on(z) in a position = ~ / ~z
+
+Units metres and degrees. Blender axes: X right, Y back (+Y), Z up. A prop's FRONT faces -Y (+Z in Y-up engines).
+Floor props stand on z=0 (origin at floor centre). One statement per line; ';' also separates.
+'# ' starts a comment. Vectors are comma lists without spaces: 1,0.5,2. A single number broadcasts (.4 = .4,.4,.4).
+Numbers are expressions: w/2, -h+.1, sin(30)*r, max(a,b), atan(rise/run) (angles in degrees). Variables: set w=1.2 d=.6 (unindented: the whole file; indented: that prop or def).
+'~' in a position component sits the shape on that axis: b 0,0,~ .4 m (z = half its height); ~.8 = on top of 0.8.
+
+prop NAME ["Title"] [subcategory] [dd=60] [col=static|pick] [mount=wall|ceiling|ground] [desc="..."] [replace=1]
+     [px=auto] [ao=auto]  texel density and grounded shading sized to the prop (new props: use both)
+     [for v=a,b,c ...]    variants: {v} is replaced in the whole prop (for twice = every combination)
+def NAME [param=default ...]   a reusable part; 'use NAME pos param=value' draws it, and so does 'NAME pos param=value'
+                               on its own (a part called like a shape). end closes (optional).
+import "path/file.parts" [as NAME]   bring in another file (or a folder's), from this file's folder; as NAME keeps its
+                               names apart: use NAME.table. A def's file variables (unindented set) are its own.
+style NAME [exterior=1]        a room style (dressing rules a host's level tools read), one line per group:
+  LAYER PIECE [repeat=1,3] [hero=1] [front=P] [around=P count=3] [beside=P sides=2] [above=P] [cluster=2,3] [stack=1]
+        [surface=1] [once=1] [weight=2] [gap=1.2] [turn=90]    LAYER: wall corner center surface decor small debris
+  decals grime crack
+dressing BUCKET piece[:radius] ...   add pieces to a kit dressing bucket (clutter, street, furniture, wall, machines...)
+dressing signs KIND=piece ...        a shop sign terrace units can name (terrace unit "sign": KIND)
+
+SHAPES (M = material)
+  b    C S M [r=rx,ry,rz] [skip=+z,-y]    box: centre, size            bx  LO HI M       box by corners
+  bb   C S BEVEL M [r=]                   chamfered box (manufactured edges)
+       b and bb: [taper=tx,ty] scales the top face (.6 = a trapezoid, 0 = a ridge or point), [lean=dx,dy] shifts it
+       (lean=0,-.1 slopes the front): cabins, plinths, monitors, lampshades, slanted consoles
+  ext  C W M u:v u:v u:v ... [ax=x|y|z] [taper=t] [r=]   an outline pushed W through, centred on C: a side profile
+       (ax=x: points are y:z), a front profile (ax=y: x:z) or a plan (ax=z: x:y). It may be concave: a car's
+       side, an armchair, a hammer head, a handset. taper narrows W toward the top of the outline
+  c    C R H M [s=10] [rt=top_r] [ax=x|y|z] [arc=a0,a1] [caps=0] [capm=M] [r=]   cylinder (ax: its axis)
+  cone C R H M [s=8] [ax=]                sph C R M [s=10] [rings=6]         tube C R_OUT R_IN H M [s=12] [ax=]
+  wedge C S M [r=]                        ramp/prism: full height at +Y (back), zero at -Y (front)
+  lathe C M r:z r:z ... [s=16] [cap=1]    revolve a profile about Z
+  pipe M R P P P ... [s=6] [closed=1]     round bar along points (rails, pipes, cables, frames)
+  sweep M prof=x:y,x:y,... P P P ...      any profile along points
+        pipe/sweep arc=cx,cz,r,a0,a1[,n]  instead of points: an arc in the XZ plane at y=0 (arch rings, hoops)
+  vault C W D RISE M [s=12]              barrel vault seen from below: span W along X, depth D along Y,
+                                          springing at C.z, crown RISE higher (arches, tunnels, railway bridges)
+  archwall C W H T M [open=W] [spring=H-open/2] [s=12]   a wall W wide, H tall, T thick (C = bottom centre of its
+                                          front face) with a round-arched opening: arcades, viaduct fronts, gateways
+  face M P P P ... [double=1]             one polygon, seen from the side its points run anticlockwise (double=1: both)
+  pan  C W H M [r=] [double=1]            flat textured quad facing the front (-Y): posters, screens
+  trim C W H CELL [r=]                    a painted decal on a quad (detail a texture carries, not triangles)
+       cells come from the texture provider's decal sheets (partscript list shows them; the basic provider has none)
+       pan, trim and sign face the front (-Y): r=0,0,90 faces +X (the right side), r=0,0,-90 the left, r=0,0,180 the back,
+       r=-90,0,0 up (lying on a top). Sit them 2 mm proud of the surface they are on.
+  sign C W H "TEXT" [sub="small line"] [bg=#hex] [fg=#hex] [lit=1.1] [tex=256x32] [r=]   a lit shop sign
+  label C W H "TEXT" [sub="small line"] [bg=#hex] [fg=#hex] [r=]   printed, unlit lettering on a prop: number plates,
+       name plates, packaging, stickers, dials. Use label, not sign, for anything that is not a lamp
+       [wrap=R sides=12 mark=bolt|orbit|star|wave accent=#hex]  on a label: a printed sleeve round a cylinder; needs a closed body underneath
+  use  NAME [C] [r=] [s=] [param=value ...]   a def, a std part, another prop, or an asset the host
+                                              provides (pack__id) as a building block
+  at   C [r=] [s=] {  ...  }              move/turn/scale a group
+  part NAME [smooth=1]                    start another mesh in the same prop (smooth = organic shading)
+  size W,D,H                              expected bounds: the build warns when they differ by >15 %
+  card where="..." pairs="a, b" look="..." avoid="..." [what="..."]   its prop library card (what defaults to desc)
+
+PLACING (by name, not by numbers)
+  NAME = LINE                      name what a line makes (top = box size=1.4,.7,.04 mat=wood); later lines read it
+  top.left right front back bottom top   its edges (numbers)     top.x y z  its middle     top.w d h  its size
+  at=top.top  at=top.top_left_front      a whole point on it: its middle, a side's middle, or sides joined (an edge, a corner)
+  on=top [at=X,Y]                  stand it on top: at= measures from the middle of top's top (a shape sits on it)
+  on(top)                          in a position: sit it on top's top surface (at=0,.2,on(top))
+  box from=A to=B size=S           a beam between two points (size across it; its top stays up); bevel_box too
+  cylinder from=A to=B radius=R    a rod (cone: it points at B)       use NAME from=A to=B  its +X along A-B; a def gets length
+  row x|y|z|-x... [gap=G | over=L] [pack=start|centre|end] [align=back,bottom...] [at=] [on=] {  lines  }
+                                   every copy of every line inside, end to end along the axis (centred; repeat N needs no every)
+  stack [gap=G] {  lines  }        a row going up from the floor: each one on the last
+  A shape without at= stands at the origin (at=0,0,on). A def reads the shapes named where it is used, in its own space.
+  e.g.  books = row x on=top at=-.4,.2 align=back {  use book repeat 10  }
+        box on=top at=books.right+.03,.24 size=.025,.14,.18 mat=brass turn=0,-14,0
+
+GENERATORS (places, not just props)
+  terrain [at=C] size=W,D mat=M height=EXPR [cells=16[,N]] [steep=M slope=35] [skirt=0]
+                                   ground whose height at each grid corner is EXPR (x, y: that corner, from the middle),
+                                   in flat triangles; faces steeper than slope take steep=; sides go down to C
+  noise(x[,y[,z]])  rough(...)     smooth noise over space, 0-1, the same all through the prop (seed= deals it again);
+                                   rough adds finer layers (lumpy at every size): height=rough(x*.2,y*.2)*3
+  here.x here.y here.z             where this copy stands in the prop: when=hypot(here.x,here.y)>5, size=.2+noise(here.x)*.4
+  drop=1 | lean [sink=D]           each copy falls onto what is under it (or rises out of ground it is buried in) and rests on
+                                   the highest point it touches; lean tilts it with the ground; sink= settles it in. Copies
+                                   that fall later land on earlier ones (piles)
+  scatter N on NAME [facing up|side|down] [apart G]   N copies over the faces of a named shape, each standing out of its
+                                   face (+Z along the face's normal): moss on tops, ivy up walls, rivets on a hull
+  box ... break=K [chunk=S] [core=M] [rubble=R]   knock K (0-1) of a box out in chunks about S across, most from the top
+                                   and the ends, crumbling where it broke (core= shows there); R of the fallen chunks lie
+                                   round its foot as rubble, dropped onto whatever is there
+  pipe/sweep ... taper=K           narrow toward the end of the line (K = the size there): branches, horns, tentacles
+  e.g.  wall = box size=3,.4,2.6 mat=stone core=dark break=.4 rubble=.5
+        box size=.1,.1,.03 mat=moss scatter 60 on wall facing up
+        use grave drop=lean sink=.1 scatter 30 over 20,20 apart 1.5 when=hypot(here.x,here.y)>5
+
+PATHS (pieces that join end to end, things set along a line)
+  chain A B*3 C [at=] [turn=]      A, then B three times, then C, each one's start snap on the last one's end snap
+                                   (snap start ... / snap end ...; without them its front and back). It starts heading +Y.
+  along="P P P" every=D [fit=1] [joints=1] [closed=1]   copies down a line of points (x,y or x,y,z), turned so the piece's
+       +X follows it: every D metres; fit=1 a whole number per straight, stretched to fill it; joints=1 where they meet
+       (posts); corners=1 one at each point. along= may name a variable: set yard="0,0 6,0 6,4"  ... along=yard
+
+SNAPS (where pieces join)
+  snap NAME C DIR [up=DIR] [kind=WORD]    a connection point: position, outward direction, kind
+       DIR: +x -x +y -y +z -z or front back left right up down. Two snaps join when their kinds match
+       (or either is any). Every piece also has base top front back left right from its bounds; set pieces
+       get their role's grid snaps too (walls: left right top outside inside; floors and roofs: top n s e w)
+  snap back 0,.03,1.2 +y kind=wall_face   e.g. a sign's back, which sits on a wall's outside face
+
+LINKS (loose ends that join up by themselves)
+  link KIND at=C toward=DIR               a loose end: where it is and which way it leaves the piece (a rail's end)
+  join KIND [reach=.6] [radius=.025] [sides=6] [mat=steel_dark] [bulge=] [with=DEF]
+       bridges this prop's open ends of KIND that nearly meet (within reach, facing each other): nearest pairs
+       first, each end once; ends already touching just count as joined. The bridge is a pipe that leaves one
+       end and comes into the other along their directions (side by side ends loop round: a stair rail's
+       return); with=DEF draws it instead, laid along +X for `length` metres. Ends come up through use,
+       chain and place, so a stair's rails join the next storey's; a used prop joins its own first. Ends
+       left open show as snap markers (Built.links).
+  join chain reach=2 with=swag            e.g. bollards with a link each side, a sagging chain between each pair
+
+KITS (sets of pieces that build together, top level like prop)
+  kit NAME [walls=SET] [grid=4] [storey=4] [wall=.3] [parapet_lift=.3] [stair_cells=2]
+    wall solid=PIECE window=PIECE door=PIECE upper=PIECE ...   wall kinds (any word: shop, sash...)
+    piece floor=PIECE roof=PIECE parapet=PIECE partition=PIECE corner=PIECE stair=PIECE
+    snap PIECE NAME C DIR [up=] [kind=]     snaps for a piece that declares none (a host's own pieces)
+  walls=SET starts from one of the host's wall sets (its walls, floor, roof, parapet, partition and
+  stair); the lines replace pieces. Pieces are props in these files, or the host's assets (pack__id).
+  Wall pieces: origin at the floor line, centred, length along X, interior face toward -Y (the prop front).
+  Floors and roofs: origin on the top surface, centred on the cell. Stairs: origin at the lower nosing,
+  rising toward +Y.
+
+BUILDINGS (top level: building NAME "Title" kit=SET; grid cells X,Y from the front-left, storeys from 0)
+  room X,Y W,D [storeys=1] [storey=0] [walls=KIND] [floor=PIECE|none] [roof=none] [theme=STYLE] [as=NAME] [fill=DEF ...]
+                                          fill=DEF furnishes the room on each of its storeys: the def gets w, d (its inside
+                                          size), h, level, door_s door_n door_w door_e (metres along that wall from the
+                                          inside front-left corner, -1 for none); the room's other options are its params
+                                          floors per storey, walls round it, roof and parapets on top; rooms
+                                          that touch share a partition, a room on a room is a higher storey
+  walls KIND [storey=N,M|all] [side=s,n,w,e]   the outside wall kind for those storeys and sides
+  open X,Y SIDE KIND [storey=0]           one wall of cell X,Y (s front, n back, w, e): door, window, none...
+                                          X or Y may be a range: open 0..2,0 s window
+  stair X,Y [DIR] [storey=0]              the kit stair rising toward DIR (n default); opens the floor above
+  roof [ROLE|PIECE|none] [parapet=PIECE|none]
+  attach PIECE to=TARGET [at=SNAP] [via=SNAP] [spin=DEG] [slide=A,B] [as=NAME]
+                                          snap PIECE's via snap onto TARGET's at snap. TARGET: an as= name, a wall
+                                          X,Y,SIDE[,STOREY], a floor X,Y,floor[,STOREY] or a roof X,Y,roof.
+                                          at defaults to outside (walls) or top; via to the snap of the same kind.
+                                          slide moves it along the target face: A to the right, B up (metres)
+  place PIECE C [r=rx,ry,rz] [as=NAME]    a piece at a position in metres
+  e.g.  building corner_shop "Corner Shop" kit=terrace
+          room 0,0 3,2 storeys=2 ; walls sash storey=1 ; open 1,0 s door ; open 0..2,0 s shop
+          attach shop_sign to=1,0,s,0 slide=0,1.1 ; attach chimney to=2,1,roof
+  building ... cutaway=open        leaves off the front walls and the roof (a dolls' house view)
+  A building builds as one model, and also exports as placement data (Project.building) for engines to place.
+
+COPIES (any shape/use/at line)
+  *N@dx,dy,dz   N copies stepping by an offset      *AxB@dx,dy  grid (A along x, B along y; AxBxC adds z)
+  *N%deg        N copies turned about Z             mx my mz    also a mirror copy across x=0 / y=0 / z=0
+  jit=pos[,deg] seeded random nudge per copy (piles, mess)      M1|M2|M3 materials cycle per copy
+  hang=S        a *N@ row sags S at its middle, like things strung on a wire (bunting, festoon bulbs)
+  *N~R          N copies scattered over a disc of radius R    *N~W,D  over a W x D area    *N~W,D,GAP  kept GAP apart
+
+DETAIL
+  torus C R THICK M [sides=16] [rings=6] [axis=x|y|z]   a ring (tyres, rims, handles, wreaths); lies flat, axis= stands it up
+  frame C W H DEPTH M [hole=w,h] [hole_at=x,z]   a panel with a hole facing the front (picture and window frames, hatches)
+  smooth=N         on pipe, sweep or along=: a curve through the points, N pieces between each pair (cables, vines, rails)
+  twist=DEG  shrink=K  bend=DEG[,HEADING]   reshape what a line or group makes by height: turn it (DEG at the top), narrow it
+                   (K times as wide at the top), curve it over (toward +Y, or HEADING degrees round from there)
+  pipe M R path    point lists can come from a variable: set path="0,0,0 .5,0,1 1,0,0"  (along=path takes it too)
+
+VARIETY (each copy different; seeded, so the same file always builds the same prop)
+  i             the copy's number (0, 1, 2...) on a line that makes copies: b 0,0,~ .3,.3,.1+i*.1 wood *5@.3,0,0
+  ... as k      name it instead (repeat 5 every .3,0,0 as k); a grid gives column and row: grid 4x3 every .5,.5 as col,row
+  if EXPR {     a group kept only while EXPR holds (no quotes needed): if level > 0 and i % 2 == 0 {  ...  }
+  \             at the end of a line: it carries on onto the next (partscript fmt wraps long lines this way)
+  rand(lo,hi)   a number drawn for this copy (rand(hi) from 0, rand() 0-1): s=rand(.8,1.2) r=0,0,rand(0,360)
+  pick(a,b,c)   one of a list, for numbers, materials or parameters: col=pick(#e84a6a,#f0d040,#f0f0f0)/plastic
+  odds(a,b,c)   0, 1 or 2 for this copy, as often as the weights: set fate=odds(70,20,10), then when=fate==1
+                a use passes its copy on: everything inside the part it places varies with it
+  when=EXPR     keep this line (or copy) only while EXPR holds: when=i%3!=0, when=depth>0 (a def that uses itself
+                stops there). Expressions compare (== != < <= > >=) and combine (and or not, a if c else b)
+  fade=F        darken toward the base: tone F at the lowest point, 1 at the top (grass, trunks, walls)
+  wobble=A[,B,C]   move every corner up to A (or A,B,C in x,y,z), differently each copy; shared corners move
+                together so the shape stays closed (weathered stone, lumpy earth, no two bones alike)
+  label text    takes pick(...) and {expressions} too, drawn per copy: "pick(ADA,NELL) {floor(rand(1800,1899))}"
+  prop ... seed=N   deal the prop's draws again           prop ... budget=N   a scene's triangle budget
+  An option is one word: an expression with spaces goes in quotes (when="i<3 or i>7").
+
+MATERIALS
+  the host's keys (partscript list shows them), library keys (wood, glass, glass_opaque,
+  steel_dark, steel_grey, rust, rubber, brass, crate_wood, lamp_warm, lamp_sodium, screen, hazard...),
+  or a colour: #rrggbb[/finish] with finish paint (default) metal plastic rubber fabric wood plaster concrete stone
+  glow (lit, for lamps and signs) glass.  A def's parameters can carry materials (use table top=#553322/wood);
+  none leaves that shape out (use crate fill=none).
+
+EXAMPLE
+  prop fruit_stall "Fruit Stall" street dd=60 desc="Barrow with a striped awning, 2.4 m."
+    b 0,0,.8 2.4,1.2,.06 wood
+    b 1.15,.55,~ .05,.05,2.4 wood mx my                 # four posts
+    b -1,.1,2.35 .4,1.4,.04 #6a1a1a/fabric|#e8e0d0/fabric r=7,0,0 *6@.4,0,0   # striped awning
+    use crate -.9,-.1,.83 fill=#e8a020/plastic *4@.6,0,0
+  prop cone_{c} "Traffic Cone" street for c=e25a1a,d8c020 ; c 0,0,~ .18 .7 #{c}/plastic rt=.03 s=8 ; b 0,0,.02 .4,.4,.04 rubber
