@@ -126,6 +126,9 @@ prop flat_stair "Stair" building
 prop stairwell "Stairwell" building
   flat_stair
   flat_stair at=0,0,3
+
+  # The landing each flight comes up onto, in front of it. In a building that is the floor of the next cell.
+  box at=0,-.6,2.9 size=2.8,1.2,.2 mat=slabc repeat 2 every 0,0,3
   join rail reach=.5
 
 kit flat grid=3 storey=3 wall=.2 parapet_lift=0 stair_cells=1 stair_exit=back
