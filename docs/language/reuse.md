@@ -55,7 +55,7 @@ an unknown statement.
 - a `def` in any file of the project;
 - a [standard part](../reference/std-parts.md): `table`, `chair`, `shelf`, `crate`, `barrel`...;
 - another prop, built whole and placed as one piece, with its loose ends;
-- an asset the host provides, as `pack__id` (see [embedding](../python/hosts.md)).
+- an asset the host provides, as `pack__id` (see [embedding](../engine/hosts.md)).
 
 When a prop and a def share a name, `use` draws the def; `check` warns. A `def` with the name of a std part
 replaces it (`check` warns about that too).

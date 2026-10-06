@@ -62,8 +62,8 @@ carrying them on with a `\` at the end of the line. See [basics](../language/bas
 The repository's `site/` folder is a small static site for looking at models:
 
 ```sh
-uv run python site/build.py                  # builds every example into site/models/
-python3 -m http.server -d site 8765          # then open http://localhost:8765 (index.html is the home page)
+sh site/build.sh                             # builds every example into site/models/, the playground and the docs
+python3 -m http.server -d site 8765          # or any static server; then open http://localhost:8765
 ```
 
 - **viewer.html** lists every model. Click one to orbit it. Hover a source line to light up the faces
@@ -76,7 +76,7 @@ python3 -m http.server -d site 8765          # then open http://localhost:8765 (
 
 ## The playground
 
-The [playground](../../play.html) runs PartScript in the browser (Python in WebAssembly, through
-Pyodide). Pick an example file or your own scratch file, type, and the model rebuilds half a second
+The [playground](../../play.html) runs PartScript in the browser: the same compiler, built to
+WebAssembly (about 1 MB). Pick an example file or your own scratch file, type, and the model rebuilds half a second
 after you stop. Mistakes show under the editor and in the margin; click one to go to its line. Your
 edits stay in the browser. Every example in these docs opens there with **try it**.

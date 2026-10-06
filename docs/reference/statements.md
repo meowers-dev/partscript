@@ -14,7 +14,7 @@ one-page version of this.
 | `set NAME=VALUE ...` | variables: for its own file when unindented, else for the rest of the block |
 | `kit NAME [option=...]` | a set of building pieces ([buildings](../language/buildings.md)) |
 | `building NAME "Title" kit=KIT [cutaway=open]` | a building laid out room by room |
-| `style NAME [exterior=1]` | a room style for a host's dressing tools ([embedding](../python/hosts.md#styles-and-dressing)) |
+| `style NAME [exterior=1]` | a room style for a host's dressing tools ([embedding](../engine/hosts.md#styles-and-dressing)) |
 | `dressing BUCKET piece[:radius] ...` / `dressing signs KIND=piece` | pieces for a host's dressing buckets |
 | `end` | closes a block early (never needed) |
 

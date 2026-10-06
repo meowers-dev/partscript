@@ -42,7 +42,7 @@
 	<a href="viewer.html">all models</a>
 	<a href="docs/index.html">docs</a>
 	<a href="index.html">home</a>
-	<span id="status" class="busy">loading Python (Pyodide)...</span>
+	<span id="status" class="busy">loading the compiler...</span>
 </header>
 <main>
 	<div id="left">
@@ -205,7 +205,7 @@ function build() {
 }
 worker.onmessage = ({ data }) => {
 	if (data.ready) { ready = true; build(); return; }
-	if (data.failed) { $("status").textContent = "Python could not start: " + data.failed; return; }
+	if (data.failed) { $("status").textContent = "the compiler could not start: " + data.failed; return; }
 	waiting = false;
 	const result = data.result;
 	const props = $("prop");
@@ -247,7 +247,7 @@ const shared = location.hash.startsWith("#code=")
 	: null;
 picker.value = !shared && names.includes(location.hash.slice(1)) ? location.hash.slice(1) : "scratch.parts";
 if (shared) { code.value = shared; numbers(); build(); }
-else open(picker.value);  // the code shows at once; it builds when Python is ready
+else open(picker.value);  // the code shows at once; it builds when the compiler is ready
 </script>
 </body>
 </html>

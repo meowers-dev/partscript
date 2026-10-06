@@ -11,7 +11,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::time::Instant;
 
 use kitlib::bake::{bake, Baked};
 use kitlib::geom::Part;
@@ -27,6 +26,20 @@ use crate::lang::{colour_key, colour_mat, parse, parse_mod, split_top, Mod, Part
 use crate::textures::Recipe;
 
 pub const STD: &str = include_str!("std.parts");
+
+/// Seconds from a fixed point (none in a browser's WebAssembly, where there is no clock: always 0).
+fn clock() -> f64 {
+	#[cfg(not(target_family = "wasm"))]
+	{
+		use std::sync::OnceLock;
+		static START: OnceLock<std::time::Instant> = OnceLock::new();
+		START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
+	}
+	#[cfg(target_family = "wasm")]
+	{
+		0.0
+	}
+}
 
 /// Reads an import: [(path, text)] for a file or a folder's .parts files (empty when there is none).
 pub type Reader<'a> = &'a dyn Fn(&str) -> Vec<(String, String)>;
@@ -347,7 +360,7 @@ impl Project {
 
 	/// One prop: its parts and steps, baked, and (glb) written to .glb bytes.
 	pub fn build(&mut self, name: &str, options: &BuildOptions) -> Result<Built, PartScriptError> {
-		let started = Instant::now();
+		let started = clock();
 		let prop = self.prop(name)?;
 		let asset_id = self.host.asset_id(&prop.name);
 		let host = self.host.clone();
@@ -412,7 +425,7 @@ impl Project {
 			glb = data;
 			warnings.extend(missing.iter().map(|name| format!("{asset_id}: texture {name} could not be made; shown grey")));
 		}
-		Ok(Built { asset_id, parts, steps: raw_steps, snaps: declared, joints, links, warnings, baked, origins, glb, seconds: started.elapsed().as_secs_f64() })
+		Ok(Built { asset_id, parts, steps: raw_steps, snaps: declared, joints, links, warnings, baked, origins, glb, seconds: clock() - started })
 	}
 
 	/// Build and write out_dir/<id>.glb.

@@ -122,13 +122,12 @@ impl TextureStore {
 /// A size x size grid of 32-bit floats.
 #[derive(Clone)]
 struct Grid {
-	size: usize,
 	v: Vec<f32>,
 }
 
 impl Grid {
 	fn filled(size: usize, value: f32) -> Grid {
-		Grid { size, v: vec![value; size * size] }
+		Grid { v: vec![value; size * size] }
 	}
 }
 

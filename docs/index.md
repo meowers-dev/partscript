@@ -2,7 +2,7 @@
 
 PartScript is a small language for building low-poly, PSX-style 3D models: props, rooms, ruins,
 whole buildings and the hills they stand on. A model is a few words a line, a few dozen lines a
-scene, and it compiles to `.glb` (glTF 2.0) in pure Python, with no Blender or other 3D package.
+scene, and it compiles to `.glb` (glTF 2.0) by one small Rust program, with no Blender or other 3D package.
 
 ```parts
 prop street_lamp_demo "Street Lamp"
@@ -38,7 +38,7 @@ small, crunchy, dithered textures, the way games looked in 1997.
 - Looking something up: [every statement and option](reference/statements.md).
 - Want to see what it can do: the [gallery](guides/gallery.md), or open the
   [playground](../play.html) and change something.
-- Building it into a game or a tool: the [Python API](python/api.md) and [embedding](python/hosts.md).
+- Building it into a game or a tool: the [Rust API](engine/api.md) and [embedding](engine/hosts.md).
 
 ## Conventions in these docs
 

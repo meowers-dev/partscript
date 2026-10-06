@@ -25,7 +25,7 @@ Pieces are props (or a host's assets). A kit names them by role:
   cell turning back on itself, a dog-leg, with `stair_exit=back`).
 
 `grid=` and `storey=` are the cell size and storey height in metres, `wall=` the wall thickness.
-`walls=SET` starts from one of the host's own wall sets (see [embedding](../python/hosts.md)).
+`walls=SET` starts from one of the host's own wall sets (see [embedding](../engine/hosts.md)).
 
 The `flat` kit in `buildings.parts` is a complete one: brick walls with windows and doors, board
 and tile floors, a flat roof with parapets, and a dog-leg stair with rails that join up.
@@ -103,5 +103,5 @@ Building a building also checks it makes sense, and warns where it does not:
 ## Buildings as data
 
 A building builds into one model, like a prop. It is also data a game can place piece by piece:
-`Project.building(name)` gives every piece's asset and position (Y-up), the rooms and the openings. See
-the [Python API](../python/api.md#buildings-as-data).
+`Project::building(name)` gives every piece's asset and position (Y-up), the rooms and the openings. See
+the [Rust API](../engine/api.md#buildings-as-data).

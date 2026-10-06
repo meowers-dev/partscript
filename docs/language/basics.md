@@ -54,7 +54,7 @@ subcategory are for people and catalogues. Header options:
 | `px=auto` | texel density sized to the prop (about 80 texels across its longest side) |
 | `ao=auto` | grounded shading faded over the prop's own height |
 | `for v=a,b,c` | variants: the prop is made once per value, with `{v}` replaced by it everywhere |
-| `desc="..."`, `dd=`, `mount=`, `col=`, `replace=1` | metadata a [host](../python/hosts.md) may read |
+| `desc="..."`, `dd=`, `mount=`, `col=`, `replace=1` | metadata a [host](../engine/hosts.md) may read |
 
 Variants make a family of props from one block:
 

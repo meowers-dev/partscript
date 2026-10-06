@@ -1,18 +1,19 @@
 # Install and first prop
 
-PartScript needs Python 3.10 or newer. Its only dependency is numpy (for making textures).
+PartScript is one program, `partscript`, written in Rust with no other dependencies. Install it with
+Cargo (from [rustup](https://rustup.rs)):
 
 ```sh
-pip install partscript
+cargo install --git https://github.com/meowers-dev/partscript partscript-cli
+partscript ref | less               # the whole language on one page
 ```
 
-Or, working from a clone of the repository with [uv](https://docs.astral.sh/uv/):
+Or, working from a clone of the repository:
 
 ```sh
 git clone https://github.com/meowers-dev/partscript
 cd partscript
-uv sync
-uv run partscript ref | less        # the whole language on one page
+cargo run --release -p partscript-cli -- ref | less
 ```
 
 You do not need to install anything to try it: the [playground](../../play.html) runs PartScript in
@@ -52,7 +53,7 @@ three small textures.
 - Lengths are **metres**, angles are **degrees**.
 - **X** is right, **Y** is back, **Z** is up (Blender's axes). A prop's front faces **-Y**.
 - A prop stands on the floor at z = 0, its origin at the middle of its footprint.
-- In the `.glb`, positions are converted to glTF's Y-up axes (see [what the .glb holds](../python/output.md)).
+- In the `.glb`, positions are converted to glTF's Y-up axes (see [what the .glb holds](../engine/output.md)).
 
 ## Next
 

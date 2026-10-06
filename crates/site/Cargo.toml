@@ -1,0 +1,17 @@
+[package]
+name = "site"
+description = "Builds partscript.dev: the models, the playground, the docs and the gallery pictures."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "partscript-site"
+path = "src/main.rs"
+
+[dependencies]
+partscript = { path = "../partscript" }
+kitlib = { path = "../kitlib" }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+regex = "1"

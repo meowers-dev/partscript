@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/kitlib", "crates/partscript", "crates/partscript-cli"]
+members = ["crates/kitlib", "crates/partscript", "crates/partscript-cli", "crates/partscript-wasm", "crates/site"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,3 +14,11 @@ opt-level = 3
 
 [profile.dev]
 opt-level = 1
+
+[profile.wasm]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

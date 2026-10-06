@@ -1,0 +1,16 @@
+[package]
+name = "partscript-wasm"
+description = "PartScript for the browser: the playground's builder, as WebAssembly."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+partscript = { path = "../partscript" }
+kitlib = { path = "../kitlib" }

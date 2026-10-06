@@ -1,13 +1,7 @@
-__pycache__/
-*.egg-info/
-.venv/
-dist/
-build/
+/target
 out/
-.pytest_cache/
 site/models/
-site/py/
+site/pkg/
 site/examples/
 site/docs/
 site/index.html
-/target

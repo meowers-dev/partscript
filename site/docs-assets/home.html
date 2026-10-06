@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PartScript: low-poly worlds in a few words</title>
-<meta name="description" content="PartScript is a small language for building low-poly, PSX-style 3D models: props, rooms, ruins, whole buildings. A few words a line, compiled to .glb in pure Python. Try it in your browser.">
+<meta name="description" content="PartScript is a small language for building low-poly, PSX-style 3D models: props, rooms, ruins, whole buildings. A few words a line, compiled to .glb by one small Rust program. Try it in your browser.">
 <meta property="og:title" content="PartScript: low-poly worlds in a few words">
 <meta property="og:description" content="A small language for PSX-style 3D models. A few words a line, compiled to .glb. Try it in your browser.">
 <meta property="og:image" content="https://partscript.dev/docs/img/hill_chapel.webp">
@@ -59,7 +59,7 @@
 		<h1>Low-poly worlds<br>in <em>a few words</em>.</h1>
 		<p>PartScript is a small language for building PSX-style 3D models: props, rooms, ruins, whole buildings
 		and the hills they stand on. A few words a line, a few dozen lines a scene, compiled to <code>.glb</code>
-		in pure Python. No Blender needed.</p>
+		by one small Rust program. No Blender needed.</p>
 		<div class="buttons">
 			<a class="button main" href="play.html">try it in your browser</a>
 			<a class="button" href="docs/start/tour.html">take the tour</a>
@@ -110,27 +110,29 @@
 <section>
 	<div class="wrap">
 		<h2>Use it</h2>
-		<p class="lead">From the command line, from Python, or embedded in a game with your own materials and textures.
+		<p class="lead">From the command line, from Rust, or embedded in a game with your own materials and textures.
 		The output is plain glTF: Godot, Unity, Blender, three.js.</p>
 		<div class="install">
-			<div class="code"><pre>pip install partscript
+			<div class="code"><pre>cargo install --git https://github.com/meowers-dev/partscript partscript-cli
 
 partscript check props/         <span class="c"># instant: mistakes and triangle counts</span>
 partscript build props/ -o out/ <span class="c"># every prop as out/&lt;id&gt;.glb</span>
 partscript fmt props/a.parts -w <span class="c"># tidy a file</span>
 partscript ref                  <span class="c"># the whole language, one page</span></pre></div>
-			<div class="code"><pre><span class="k">from</span> partscript <span class="k">import</span> Project
+			<div class="code"><pre><span class="k">use</span> partscript::{Host, Project};
 
-project = Project.from_paths([<span class="s">"props/"</span>])
-print(project.check()[<span class="s">"errors"</span>])
-built = project.build(<span class="s">"street_lamp"</span>)
-open(<span class="s">"street_lamp.glb"</span>, <span class="s">"wb"</span>).write(built.glb)</pre></div>
+<span class="k">let mut</span> p = Project::from_paths(
+    &amp;[<span class="s">"props/"</span>], Host::default())?;
+println!(<span class="s">"{:?}"</span>, p.check().errors);
+<span class="k">let</span> lamp = p.build(<span class="s">"street_lamp"</span>,
+    &amp;Default::default())?;
+std::fs::write(<span class="s">"lamp.glb"</span>, lamp.glb)?;</pre></div>
 		</div>
 	</div>
 </section>
 
 <footer><div class="wrap">PartScript · <a href="docs/index.html">docs</a> · <a href="play.html">playground</a> ·
-	<a href="viewer.html">every model</a> · <a href="docs/python/api.html">Python API</a> ·
+	<a href="viewer.html">every model</a> · <a href="docs/engine/api.html">Rust API</a> ·
 	<a href="https://github.com/meowers-dev/partscript">GitHub</a> · MIT license</div></footer>
 
 <script type="importmap">

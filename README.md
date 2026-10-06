@@ -2,7 +2,7 @@
 
 Low-poly props in a few words. PartScript is a small language for modelling game props: boxes,
 cylinders, lathes, extrusions, pipes and reusable parts, a few words a line, dozens of props a file.
-It compiles to `.glb` (glTF 2.0) in pure Python. No Blender needed.
+It compiles to `.glb` (glTF 2.0) with one small Rust program. No Blender needed.
 
 ```
 prop street_lamp "Street Lamp" street
@@ -14,7 +14,7 @@ prop street_lamp "Street Lamp" street
 ```
 
 ```sh
-pip install partscript
+cargo install --git https://github.com/meowers-dev/partscript partscript-cli
 partscript build props/ -o out/      # every prop as out/<id>.glb
 partscript check props/              # names, materials, triangle estimates; instant
 partscript ref                       # the whole language on one page
@@ -349,35 +349,41 @@ prop market_row "Market Row" street hero=1
 and a built prop's faces carry their `use` chain (`Built.origins`, and `TEXCOORD_1.y` in a step-tagged
 .glb), so a viewer can light up any part at any depth.
 
-## In Python
+## In Rust
 
-```python
-from partscript import Project
+```rust
+use partscript::{BuildOptions, Host, Project};
 
-project = Project.from_paths(["props/"])
-print(project.check()["errors"])
-built = project.build("street_lamp")      # parts, per-line steps, triangles, the .glb bytes
-open("street_lamp.glb", "wb").write(built.glb)
+let mut project = Project::from_paths(&["props/"], Host::default()).unwrap();
+println!("{:?}", project.check().errors);
+// Parts, per-line steps, triangles, the .glb bytes.
+let built = project.build("street_lamp", &BuildOptions::default()).unwrap();
+std::fs::write("street_lamp.glb", &built.glb).unwrap();
 ```
 
-Embedding it in a game or tool: subclass `partscript.Host` for your own materials, existing assets
-(`use pack__id`), asset-id prefix and building kits, and give it a `TextureProvider` for your own
-textures. The built-in `BasicProvider` makes small quantized, dithered textures for every finish
-and pixel-font signs.
+Embedding it in a game or tool: give `partscript::Host` an `Embed` for your existing assets
+(`use pack__id`), your own props and building kits, an asset-id prefix, and a `TextureProvider` for your
+own materials and textures. The built-in `BasicProvider` makes small quantized, dithered textures for
+every finish and pixel-font signs.
 
 ## Layout
 
-- `partscript.lang`: tokens, expressions and the parser (no geometry)
-- `partscript.check`: the static check (names, materials, triangle estimates)
-- `partscript.compiler`: statements to `kitlib` parts; `partscript.building`: kits, snaps, buildings
-- `partscript.textures`: texture providers, the cached texture store, a PNG encoder
-- `kitlib.geom`, `kitlib.bake`, `kitlib.gltf`: geometry, the baked vertex tone and the `.glb` writer
-- `kitlib.noise`, `kitlib.surface`, `kitlib.ruin`: smooth noise, surfaces (what is under a point, points spread
-  over faces) and broken boxes
-- `site/`: the home page (`index.html`), the model viewer (`viewer.html`, `sheet.html`), the PSX look (`psx.js`) and the playground (`play.html`,
-  which runs partscript in the browser with Pyodide); `uv run python site/build.py` builds everything they show
-- `docs/`: the documentation in Markdown; `uv run python site/docs.py` builds it into `site/docs/` (and refreshes
-  the reference pages generated from the code), `site/shots.py` renders the gallery's pictures
+- `crates/partscript`: the language. `lang` (tokens and the parser, no geometry), `expr` (expressions),
+  `check` (the static check: names, materials, triangle estimates), `compiler` (statements to `kitlib`
+  parts), `building` (kits, snaps, buildings), `textures` (texture providers and the cached texture
+  store), `project` (files to `.glb`), `fmt` (the formatter)
+- `crates/kitlib`: `geom`, `bake`, `gltf` (geometry, the baked vertex tone and the `.glb` writer);
+  `noise`, `surface`, `ruin` (smooth noise, surfaces and broken boxes); `paths`, `maths`
+- `crates/partscript-cli`: the `partscript` command
+- `crates/partscript-wasm`: the compiler as WebAssembly, for the playground
+- `crates/site`: builds partscript.dev: the models, the docs (with the reference pages generated from the
+  code) and the gallery's pictures (`cargo run -p site -- models | docs | shots`)
+- `site/`: the home page, the model viewer (`viewer.html`, `sheet.html`), the PSX look (`psx.js`) and the
+  playground (`play.html`, which runs the WebAssembly build)
+- `docs/`: the documentation in Markdown
+- `tests/reference/`: what the original Python implementation built, which the Rust tests compare against
+
+`cargo test` runs every test.
 
 Building the whole site (partscript.dev) into `site/`, as Cloudflare Pages does with build command
 `sh site/build.sh` and output directory `site`:

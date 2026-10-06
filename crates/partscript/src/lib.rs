@@ -29,3 +29,14 @@ pub use textures::{BasicProvider, Image, Recipe, TextureProvider, TextureStore};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub use npy::Generator as NumpyGenerator;
+
+/// The Rust examples in docs/engine/ compile (cargo test --doc).
+#[cfg(doctest)]
+mod engine_docs {
+	#[doc = include_str!("../../../docs/engine/api.md")]
+	struct Api;
+	#[doc = include_str!("../../../docs/engine/hosts.md")]
+	struct Hosts;
+	#[doc = include_str!("../../../docs/engine/kitlib.md")]
+	struct Kitlib;
+}
