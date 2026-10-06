@@ -39,11 +39,41 @@ prop fence_demo "Fence, One Missing"
   }
 ```
 
+## odds(): one fate of several
+
+`odds(a,b,c)` draws 0, 1 or 2 for the copy, as often as its weights say: `odds(70,20,10)` is 0 seven
+times in ten, 1 twice and 2 once. The weights are any numbers (they need not add up to 100), so they can
+be parameters. Roll the fate once in a part with `set`, and give each way it can turn out its own lines
+with `when=`:
+
+```parts
+def crate_fate_demo whole=60 open=25 smashed=15
+  set fate=odds(whole,open,smashed)
+  # 0 whole and 1 open: the crate; an open one has its lid propped up behind it.
+  box at=0,0,on size=.5,.4,.4 mat=wood when=fate<=1
+  box at=0,.2,.4 size=.5,.03,.4 mat=wood turn=-25,0,0 when=fate==1
+
+  # 2 smashed: its boards in a heap.
+  box at=0,0,.03 size=.5,.08,.03 mat=wood turn=0,0,rand(0,180) when=fate==2 scatter 6 within .3
+
+prop crate_odds_demo "Crates, Dealt"
+  crate_fate_demo at=-1.6,0,0 repeat 5 every .8,0,0
+  crate_fate_demo at=-1.6,1,0 whole=0 open=50 smashed=50 repeat 5 every .8,0,0
+```
+
+The front row keeps the part's own odds; the back row never comes up whole. `examples/garden.parts`
+deals a whole fence this way: each bay between two posts is whole, gappy, sagging, kicked over or flat
+on the ground, then each of its pickets is whole, snapped or gone, and each post stands or leans, all
+by odds the fence is given.
+
 ## seed=
 
 Every draw comes from the prop's seed. Give the prop `seed=2` (any word or number) and everything
 is drawn again: a new take on the same prop. The [variants](basics.md#props) of a prop share their
 draws unless each gets a seed.
+
+`Project.build(name, seed=...)` and `partscript build --seed S` deal a prop again without changing its
+file: a game's tools can ask for variant 4817 of a broken fence and get the same one every time.
 
 A line's draws follow its own words, not where it stands in the file: add a comment, a blank line or
 another line and everything else stays as it was. Change a line and only that line is drawn again.

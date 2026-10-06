@@ -33,6 +33,7 @@ SHOTS = {
 	"fenced_garden": ("fenced_garden", ".6,.6,1", 1.4, False),
 	"bicycle": ("bicycle", "1,.3,.4", 1.4, False),
 	"railing": ("railing_corners", ".6,.6,1", 1.4, False),
+	"fence_odds": ("fence_odds", ".25,.75,1", 1.7, False),
 }
 
 

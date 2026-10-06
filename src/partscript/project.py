@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import time
@@ -264,12 +265,15 @@ class Project:
 			self._compiler.register_materials()
 		return self._compiler
 
-	def build(self, name: str, glb: bool = True, steps: bool = False, snaps: bool = False) -> Built:
+	def build(self, name: str, glb: bool = True, steps: bool = False, snaps: bool = False, seed: str | int | None = None) -> Built:
 		"""One prop: its parts and steps, baked, and (glb) written to .glb bytes. steps tags each
 		face with its source statement (TEXCOORD_1.x) and its use chain (TEXCOORD_1.y, an index into
-		Built.origins), for line-by-line previews and for showing which part made which faces."""
+		Built.origins), for line-by-line previews and for showing which part made which faces.
+		seed= deals the prop's draws again, as if it said seed=...: one more variant, the same every time."""
 		started = time.perf_counter()
 		prop = self.prop(name)
+		if seed is not None:
+			prop = dataclasses.replace(prop, opts={**prop.opts, "seed": str(seed)})
 		asset_id = self.host.asset_id(prop.name)
 		compiler = self.compiler
 		compiler.snap_sink = []
@@ -315,21 +319,21 @@ class Project:
 			self.host.add_material(key, Mat(key, 2.0, **colour_material_kwargs(hex_, finish)), ("surface", finish, hex_))
 		return key
 
-	def write(self, name: str, out_dir: Path | str, steps: bool = False) -> Built:
-		result = self.build(name, steps=steps)
+	def write(self, name: str, out_dir: Path | str, steps: bool = False, seed: str | int | None = None) -> Built:
+		result = self.build(name, steps=steps, seed=seed)
 		path = Path(out_dir) / f"{result.asset_id}.glb"
 		path.parent.mkdir(parents=True, exist_ok=True)
 		path.write_bytes(result.glb)
 		return result
 
-	def write_all(self, out_dir: Path | str, only: list[str] | None = None) -> dict:
+	def write_all(self, out_dir: Path | str, only: list[str] | None = None, seed: str | int | None = None) -> dict:
 		"""Every prop (not buildings) as out_dir/<id>.glb. Returns {"built": [...], "errors": [...], "warnings": [...]}."""
 		out: dict = {"built": [], "errors": [], "warnings": []}
 		for prop in self.program.props:
 			if prop.kind == "building" or prop.file in self.program.imported or (only and prop.name not in only and self.host.asset_id(prop.name) not in only):
 				continue
 			try:
-				result = self.write(prop.name, out_dir)
+				result = self.write(prop.name, out_dir, seed=seed)
 			except PartScriptError as error:
 				out["errors"].append(str(error))
 				continue

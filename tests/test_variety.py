@@ -158,3 +158,28 @@ def test_wobble_moves_corners_and_keeps_shared_ones_together() -> None:
 	corners = {(round(p[0], 6), round(p[1], 6), round(p[2], 6)) for f in rough.parts[0].faces for p in f.points}
 	assert len(corners) == 8
 	assert corners != {(round(p[0], 6), round(p[1], 6), round(p[2], 6)) for f in plain.parts[0].faces for p in f.points}
+
+
+def test_odds_comes_up_as_often_as_its_weights() -> None:
+	text = "def fated\n  set fate=odds(60,30,10)\n  b fate,0,~ .1,.1,.1 wood\n\nprop aa \"A\"\n  use fated *400@0,0,0\n"
+	_, built = build(text, "aa")
+	xs = [x for x, _ in boxes(built)]
+	counts = [sum(1 for x in xs if abs(x - k) < .01) for k in range(3)]
+	assert sum(counts) == 400
+	assert 200 < counts[0] < 280 and 90 < counts[1] < 150 and 20 < counts[2] < 65
+
+
+def test_odds_never_draws_a_weight_of_nothing_and_rejects_no_weights() -> None:
+	_, built = build('prop aa "A"\n  b odds(0,5,0),0,~ .1,.1,.1 wood *50@0,0,0\n', "aa")
+	assert {x for x, _ in boxes(built)} == {1.0}
+	project = ps.Project.from_text('prop bb "B"\n  b odds(0,0),0,~ .1,.1,.1 wood\n', "v.parts")
+	with pytest.raises(ps.PartScriptError, match="odds"):
+		project.build("bb", glb=False)
+
+
+def test_build_seed_deals_another_variant_the_same_every_time() -> None:
+	project, plain = build('prop aa "A"\n  b 0,0,~ .1,.1,rand(.2,1) wood *6@.3,0,0\n', "aa")
+	one = project.build("aa", glb=False, seed=4817)
+	again = project.build("aa", glb=False, seed=4817)
+	assert boxes(one) == boxes(again) != boxes(plain)
+	assert boxes(project.build("aa", glb=False)) == boxes(plain)

@@ -62,6 +62,14 @@ and <code>stack</code>: no coordinates added up.</td>
 <b>Standing stones</b>: a ring dropped onto a moor with <code>drop=lean</code>, one fallen, lichen
 on their faces.</td>
 </tr>
+<tr>
+<td><img src="docs/img/fence_odds.webp" alt="Four fences from well kept to derelict"><br>
+<b>Fence odds</b> (<code>garden.parts</code>): every bay rolls a fate with <code>odds()</code> (whole,
+gappy, sagging, kicked over, flat), every picket and post its own; only the odds differ row to row.</td>
+<td><img src="docs/img/kitchen_dresser.webp" alt="A painted kitchen dresser"><br>
+<b>Kitchen dresser</b> (<code>layout.parts</code>): plates along a shelf behind a rail, jars of drawn
+heights, doors stood against the cupboard with <code>on=base.front</code>.</td>
+</tr>
 </table>
 
 ## Two ways to write it

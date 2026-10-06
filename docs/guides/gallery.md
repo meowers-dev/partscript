@@ -62,6 +62,14 @@ leaning its own way; bones of drawn lengths pushing up out of the graves.
 
 `layout.parts`. Built with names, `on=`, `row`, `stack` and `from=`/`to=`, and no adding up.
 
+## Odds
+
+![Four picket fences, from well kept to derelict: bays sagging, kicked over and flat in the grass](../img/fence_odds.webp)
+
+`garden.parts`. One fence four times, only its odds changed: every bay rolls whole, gappy, sagging,
+kicked over or flat (`odds()`), then every picket rolls whole, snapped or gone, and every post stands or
+leans. The front fence is kept; the back one is derelict.
+
 ## Smaller things
 
 ![An oak tree grown from one branch that uses itself](../img/oak_tree.webp)

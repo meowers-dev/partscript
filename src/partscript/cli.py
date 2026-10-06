@@ -66,7 +66,7 @@ def cmd_build(args) -> int:
 		for error in project.errors:
 			print(f"error: {error}")
 		return 1
-	result = project.write_all(args.out, args.only.split(",") if args.only else None)
+	result = project.write_all(args.out, args.only.split(",") if args.only else None, args.seed)
 	for row in result["built"]:
 		print(f"  {row['id']:40s} {row['triangles']:6d} tris  {row['seconds'] * 1000:7.1f} ms")
 	for warning in result["warnings"]:
@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
 		if name == "build":
 			command.add_argument("-o", "--out", default="out", help="output directory (default out/)")
 			command.add_argument("--only", help="comma-separated prop names")
+			command.add_argument("--seed", help="deal every prop's draws again with this seed (another variant)")
 	formatter = sub.add_parser("fmt", help="rewrite files in words (default) or in shorthand (--terse)")
 	formatter.add_argument("files", nargs="+")
 	formatter.add_argument("--terse", action="store_true", help="shorthand: b 0,0,~ .4 wood")

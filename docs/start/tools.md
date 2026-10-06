@@ -7,6 +7,7 @@ partscript ref                        # the language, in one page
 partscript check props/               # parse and check every .parts file under props/ (no building)
 partscript build props/ -o out/       # every prop as out/<id>.glb
 partscript build props/ -o out/ --only crate_stack,street_lamp
+partscript build props/ -o out/ --only weathered_fence --seed 4817   # another deal of its draws
 partscript list props/                # props, std parts and materials
 partscript fmt props/a.parts          # print it in words (the readable form)
 partscript fmt props/a.parts -w       # ...and write it back

@@ -24,7 +24,7 @@ open("street_lamp.glb", "wb").write(built.glb)
 | `.props()` | `[{"id", "title", "subcategory", "kind", "file", "line"}]`, kind `prop` or `building` |
 | `.prop(name)` | the parsed prop |
 | `.check()` | the static check (below) |
-| `.build(name, glb=True, steps=False, snaps=False)` | a `Built` (below) |
+| `.build(name, glb=True, steps=False, snaps=False, seed=None)` | a `Built` (below); `seed=` deals its draws again: another variant, the same every time |
 | `.write(name, out_dir)` | build and write `out_dir/<id>.glb` |
 | `.write_all(out_dir, only=None)` | every prop: `{"built": [{"id", "triangles", "seconds"}], "errors", "warnings"}` |
 | `.building(name)` | a building as placement data (below) |

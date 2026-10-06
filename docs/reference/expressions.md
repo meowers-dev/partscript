@@ -33,6 +33,7 @@ Angles are degrees, in and out.
 |---|---|
 | `rand()` `rand(hi)` `rand(lo,hi)` | a number drawn for this copy (0-1, 0-hi, lo-hi) |
 | `pick(a,b,c)` | one of the list, for this copy (numbers, materials, words) |
+| `odds(a,b,c)` | 0, 1 or 2 for this copy, as often as the weights say ([odds](../language/variety.md#odds-one-fate-of-several)) |
 | `noise(x[,y[,z]])` | smooth noise over space, 0-1, the same for the whole prop |
 | `rough(x[,y[,z]])` | layered noise, 0-1 |
 

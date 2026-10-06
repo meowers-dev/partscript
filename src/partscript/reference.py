@@ -183,6 +183,7 @@ VARIETY (each copy different; seeded, so the same file always builds the same pr
   \             at the end of a line: it carries on onto the next (partscript fmt wraps long lines this way)
   rand(lo,hi)   a number drawn for this copy (rand(hi) from 0, rand() 0-1): s=rand(.8,1.2) r=0,0,rand(0,360)
   pick(a,b,c)   one of a list, for numbers, materials or parameters: col=pick(#e84a6a,#f0d040,#f0f0f0)/plastic
+  odds(a,b,c)   0, 1 or 2 for this copy, as often as the weights: set fate=odds(70,20,10), then when=fate==1
                 a use passes its copy on: everything inside the part it places varies with it
   when=EXPR     keep this line (or copy) only while EXPR holds: when=i%3!=0, when=depth>0 (a def that uses itself
                 stops there). Expressions compare (== != < <= > >=) and combine (and or not, a if c else b)

@@ -223,6 +223,17 @@ def evaluate(text: str, env: dict) -> float:
 			bounds = [walk(a) for a in node.args]
 			low, high = (0.0, 1.0) if not bounds else (0.0, bounds[0]) if len(bounds) == 1 else bounds[:2]
 			return _rng(env, text, node.col_offset).uniform(low, high)
+		if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "odds" and not node.keywords:
+			# odds(70, 20, 10): 0, 1 or 2 for this copy, as often as the weights say (any numbers, not just %).
+			weights = [walk(a) for a in node.args]
+			if not weights or any(w < 0 for w in weights) or sum(weights) <= 0:
+				raise ValueError("odds(w0, w1, ...): weights of 0 or more, at least one above 0")
+			roll = _rng(env, text, node.col_offset).uniform(0, sum(weights))
+			for index, weight in enumerate(weights):
+				roll -= weight
+				if roll < 0:
+					return float(index)
+			return float(max(k for k, w in enumerate(weights) if w > 0))
 		if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
 			target = env.get(node.value.id)
 			if not isinstance(target, Bounds):

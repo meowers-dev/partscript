@@ -73,3 +73,75 @@ prop rubble_pile "Rubble Pile" street
   box at=0,0,.07 size=.22,.1,.07 mat=brick turn=rand(-35,35),rand(-35,35),rand(0,360) scatter 12 within .45
   sphere at=0,0,on radius=rand(.05,.12) mat=concrete sides=5 rings=3 scatter 14 within 1.1 apart .08
   box at=.55,.3,.04 size=.9,.06,.04 mat=wood turn=0,-8,rand(20,40)
+
+# ------------------------------------------------------------------ a fence that has seen better days
+
+# odds(a,b,c) draws 0, 1 or 2 for each copy, as often as its weights say: odds(70,20,10) is 0 seven
+# times in ten. A part rolls its fate once (set fate=odds(...)) and its lines keep the one that came up
+# (when=fate==1). The weights are parameters, so whoever calls the part says how likely each fate is.
+
+# A picket: whole (pointed), snapped (a stub with a splinter, its top lying in front), or gone.
+def picket tall=0 snapped=8 gone=4 col=#e8e4d8/paint
+  set fate=odds(100-snapped-gone,snapped,gone) stub=rand(.25,.6)
+
+  # 0: whole
+  box at=0,0,on size=.08,.02,.85+tall mat=col taper=.4,1 fade=.75 when=fate==0
+
+  # 1: snapped
+  box at=0,0,on size=.08,.02,stub mat=col fade=.75 when=fate==1
+  box at=.02,0,on(stub) size=.03,.02,rand(.04,.1) mat=col when=fate==1
+  box at=rand(-.1,.1),-rand(.25,.5),.01 size=.08,.02,.85+tall-stub mat=col taper=.4,1 turn=-90,0,rand(-40,40) when=fate==1
+
+# A post: most stand straight, some lean.
+def old_post lean=15 col=#e8e4d8/paint
+  set tilt=odds(100-lean,lean)
+  group turn=tilt*rand(-9,9),tilt*rand(-9,9),0 {
+    box at=0,0,on size=.09,.09,1.05 mat=col fade=.7
+    cone at=0,0,on(1.05) radius=.07 height=.08 mat=col sides=4 turn=0,0,45
+  }
+
+# One bay between two posts, dealt one of five fates by its odds; its pickets then roll their own.
+def fence_bay w=2 n=9 whole=50 gappy=20 sagging=12 kicked=10 flat=8 snapped=8 gone=4 col=#e8e4d8/paint
+  set fate=odds(whole,gappy,sagging,kicked,flat) step=(w-.2)/(n-1)
+
+  # 0 whole, 1 gappy: both rails, and the pickets, a gappy bay losing many more of them.
+  box at=0,.04,.3 size=w,.03,.07 mat=col repeat 2 every 0,0,.45 when=fate<=1
+  picket at=-w/2+.1,0,0 tall=.06*(k%2) snapped=snapped gone="gone if fate==0 else gone+35" col=col \
+      when=fate<=1 repeat n every step,0,0 as k
+
+  # 2 sagging: the top rail snapped in the middle, its halves hanging, the pickets leaning in after it.
+  box at=0,.04,.3 size=w,.03,.07 mat=col when=fate==2
+  box from=-w/2,.04,.75 to=-.04,.04,.5 size=.03,.07 mat=col when=fate==2
+  box from=w/2,.04,.75 to=.04,.04,.42 size=.03,.07 mat=col when=fate==2
+  picket at=-w/2+.1,0,0 tall=.06*(k%2) snapped=snapped gone=gone col=col turn=0,(k-(n-1)/2)*-3+rand(-3,3),0 \
+      when=fate==2 repeat n every step,0,0 as k
+
+  # 3 kicked: the whole bay pushed over backward, still on its rails.
+  group turn=-rand(18,32),0,0 when=fate==3 {
+    box at=0,.04,.3 size=w,.03,.07 mat=col repeat 2 every 0,0,.45
+    picket at=-w/2+.1,0,0 tall=.06*(k%2) snapped=snapped gone=gone col=col repeat n every step,0,0 as k
+  }
+
+  # 4 flat: the bay fallen forward into the grass, rails up.
+  group at=0,0,.012 turn=88,0,rand(-6,6) when=fate==4 {
+    box at=0,.04,.3 size=w,.03,.07 mat=col repeat 2 every 0,0,.45
+    picket at=-w/2+.1,0,0 tall=.06*(k%2) snapped=snapped gone=gone col=col repeat n every step,0,0 as k
+  }
+
+# A run of n bays between n+1 posts. Its odds are passed down: say how well kept it is.
+def fence_run n=5 w=2 whole=50 gappy=20 sagging=12 kicked=10 flat=8 snapped=8 gone=4 lean=15
+  old_post at=-n*w/2,.04,0 lean=lean repeat n+1 every w,0,0
+  fence_bay at=-n*w/2+w/2,0,0 w=w whole=whole gappy=gappy sagging=sagging kicked=kicked flat=flat \
+      snapped=snapped gone=gone repeat n every w,0,0
+
+prop weathered_fence "Weathered Fence" garden hero=1
+  box at=0,0,-.02 size=11,2.4,.04 mat=#4e6a2c/fabric
+  fence_run
+
+# The same fence four times, from well kept to derelict: only the odds change.
+prop fence_odds "Fence Odds" garden hero=1 budget=12000
+  box at=0,3.3,-.02 size=11,9.6,.04 mat=#4e6a2c/fabric
+  fence_run at=0,0,0 whole=95 gappy=5 sagging=0 kicked=0 flat=0 snapped=2 gone=0 lean=0
+  fence_run at=0,2.2,0 whole=60 gappy=20 sagging=10 kicked=5 flat=5 snapped=6 gone=3 lean=10
+  fence_run at=0,4.4,0 whole=30 gappy=25 sagging=20 kicked=15 flat=10 snapped=12 gone=8 lean=30
+  fence_run at=0,6.6,0 whole=5 gappy=20 sagging=25 kicked=20 flat=30 snapped=25 gone=20 lean=60
