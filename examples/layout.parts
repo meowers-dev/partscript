@@ -29,13 +29,14 @@ def cup
   cylinder radius=.04 height=.09 sides=6 mat=pick(#e8e0d0,#c84a3a,#3a6a9a,#e8c040)/plastic
   torus at=.045,0,.045 radius=.025 thick=.008 axis=y sides=6 rings=3 mat=pick(#e8e0d0,#c84a3a,#3a6a9a)/plastic
 
-# A desk lamp: a weighted base, an arm up to its elbow, and the shade pointing down from there.
+# A desk lamp: a weighted base, an arm up to its elbow, and the shade reaching down from there toward -x
+# (so stand it at a desk's right-hand end).
 def anglepoise
   base = cylinder radius=.08 height=.03 sides=8 mat=steel_dark
-  elbow = sphere at=-.06,.04,.42 radius=.02 sides=6 rings=3 mat=steel_dark
+  elbow = sphere at=.06,.04,.42 radius=.02 sides=6 rings=3 mat=steel_dark
   cylinder from=base.top to=elbow radius=.012 sides=5 mat=steel_dark
-  cone from=.14,-.02,.3 to=elbow radius=.08 sides=8 mat=#c84a3a/paint
-  sphere at=.13,-.02,.31 radius=.03 sides=6 rings=3 mat=lamp_warm
+  cone from=-.14,-.06,.3 to=elbow radius=.08 sides=8 mat=#c84a3a/paint
+  sphere at=-.13,-.06,.31 radius=.03 sides=6 rings=3 mat=lamp_warm
 
 # ------------------------------------------------------------------ the writer's desk
 

@@ -51,9 +51,9 @@ The lamp's arm runs from its base to an elbow, and its shade points back at the 
 prop tour_4 "Tour 4"
   top = box at=0,0,on(.72) size=1.2,.6,.04 mat=wood
   base = cylinder on=top at=.4,.1 radius=.08 height=.03 mat=steel_dark sides=8
-  elbow = sphere at=.34,.15,1.18 radius=.02 mat=steel_dark sides=6 rings=3
+  elbow = sphere at=.46,.15,1.18 radius=.02 mat=steel_dark sides=6 rings=3
   cylinder from=base.top to=elbow radius=.012 mat=steel_dark sides=5
-  cone from=.55,.08,1.05 to=elbow radius=.08 mat=#c84a3a/paint sides=8
+  cone from=.25,.06,1.05 to=elbow radius=.08 mat=#c84a3a/paint sides=8
 ```
 
 `#c84a3a/paint` is a material made from a colour and a finish.
@@ -65,15 +65,17 @@ Name a group of lines with `def`, then call it by its name like a shape, anywher
 ```parts
 def tour_lamp shade=#c84a3a/paint
   base = cylinder radius=.08 height=.03 mat=steel_dark sides=8
-  elbow = sphere at=-.06,.05,.45 radius=.02 mat=steel_dark sides=6 rings=3
+  elbow = sphere at=.06,0,.45 radius=.02 mat=steel_dark sides=6 rings=3
   cylinder from=base.top to=elbow radius=.012 mat=steel_dark sides=5
-  cone from=.15,-.02,.32 to=elbow radius=.08 mat=shade sides=8
+  cone from=-.15,0,.32 to=elbow radius=.08 mat=shade sides=8
 
 prop tour_5 "Tour 5"
   top = box at=0,0,on(.72) size=1.2,.6,.04 mat=wood
   tour_lamp on=top at=.4,.1
-  tour_lamp on=top at=-.4,.1 shade=#3a6a9a/paint
+  tour_lamp on=top at=-.4,.1 shade=#3a6a9a/paint turn=0,0,180
 ```
+
+The lamp's shade reaches toward -x; `turn=0,0,180` turns the second one round to face the first.
 
 ## 6. Rows and variety
 
