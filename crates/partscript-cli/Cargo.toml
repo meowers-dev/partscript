@@ -1,0 +1,15 @@
+[package]
+name = "partscript-cli"
+description = "The partscript command: check, build and format .parts files."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "partscript"
+path = "src/main.rs"
+
+[dependencies]
+partscript = { path = "../partscript" }

@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["crates/kitlib", "crates/partscript", "crates/partscript-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/meowers-dev/partscript"
+homepage = "https://partscript.dev"
+
+[profile.release]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1

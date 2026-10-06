@@ -50,7 +50,7 @@ def broken_box(part, size: tuple, material: str, amount: float, chunk: float, se
 	gone = set(order[:round(max(0.0, min(1.0, amount)) * len(cells))])
 	# Anything no longer joined to the bottom through the rest falls too.
 	kept = set(cells) - gone
-	reached, todo = set(), [c for c in kept if c[2] == 0]
+	reached, todo = set(), [c for c in sorted(kept) if c[2] == 0]
 	while todo:
 		c = todo.pop()
 		if c in reached:
@@ -101,7 +101,7 @@ def broken_box(part, size: tuple, material: str, amount: float, chunk: float, se
 		other = [a for a in range(3) if a != axis]
 		layer = n[axis] - 1 if direction[axis] > 0 else 0
 		clean = {}
-		for c in kept:
+		for c in sorted(kept):
 			if c[axis] != layer:
 				continue
 			quad = [(c[0] + o[0], c[1] + o[1], c[2] + o[2]) for o in offsets]
@@ -121,7 +121,7 @@ def broken_box(part, size: tuple, material: str, amount: float, chunk: float, se
 					quad.append(tuple(-half[a] + v[a] * cell[a] for a in range(3)))
 				part.face(quad, material)
 		# Broken faces: a kept chunk beside a missing one.
-		for c in kept:
+		for c in sorted(kept):
 			nb = (c[0] + direction[0], c[1] + direction[1], c[2] + direction[2])
 			if inside(*nb) and nb in gone:
 				_quad(part, corners(c, offsets), core)

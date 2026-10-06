@@ -1,0 +1,11 @@
+[package]
+name = "partscript"
+description = "Low-poly props in a few words: a small language that compiles to .glb."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+kitlib = { path = "../kitlib" }
