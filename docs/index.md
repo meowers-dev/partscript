@@ -23,7 +23,8 @@ small, crunchy, dithered textures, the way games looked in 1997.
   pipes, sweeps, rings, frames, arches and vaults, flat panels and printed labels. Any group of
   lines can become a part with parameters (`def`), used anywhere, as often as you like.
 - **Variety.** `rand()`, `pick()` and `when=` make every copy different: a bookshelf where no two books
-  match, a graveyard where every stone has its own name and dates.
+  match, a graveyard where every stone has its own name and dates. `odds()` deals each copy one of
+  several fates as often as you say: a fence whose every bay is whole, sagging or flat in the grass.
 - **Placing by name.** Name a shape and place others against it: `on=desk`, `desk.top`, `row` and
   `stack` for things side by side and piled up, `from=`/`to=` for beams and cables.
 - **Places.** Ground from noise (`terrain`), walls with chunks knocked out (`break=`), things that

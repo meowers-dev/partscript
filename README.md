@@ -135,8 +135,10 @@ def book_row w=.9
 
 Lines that make copies can make every copy different. `i` is the copy's number, `rand(lo,hi)` draws a
 number for it and `pick(a,b,c)` chooses from a list; `scatter N over W,D` spreads copies over an area, `when=` keeps a
-copy only while a condition holds, and `fade=` darkens a shape toward its base. Draws are seeded, so a
-file always builds the same prop (`seed=N` on a prop deals it again).
+copy only while a condition holds, and `fade=` darkens a shape toward its base. `odds(70,20,10)` deals a copy
+one of several fates as often as its weights say (whole, snapped or gone). Draws are seeded, so a file always
+builds the same prop: `seed=N` on a prop, `Project.build(name, seed=N)` or `partscript build --seed N` deals it
+again.
 
 A bed of forty flowers, each its own colour, height and lean:
 

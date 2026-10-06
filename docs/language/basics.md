@@ -50,7 +50,7 @@ subcategory are for people and catalogues. Header options:
 |---|---|
 | `hero=1` | a larger triangle budget (6,000 instead of 2,500) |
 | `budget=N` | this prop's triangle budget |
-| `seed=N` | deals every `rand()`, `pick()` and `scatter` again: a new take on the same prop |
+| `seed=N` | deals every `rand()`, `pick()`, `odds()` and `scatter` again: a new take on the same prop (`Project.build(name, seed=N)` and `partscript build --seed N` do it without editing the file) |
 | `px=auto` | texel density sized to the prop (about 80 texels across its longest side) |
 | `ao=auto` | grounded shading faded over the prop's own height |
 | `for v=a,b,c` | variants: the prop is made once per value, with `{v}` replaced by it everywhere |

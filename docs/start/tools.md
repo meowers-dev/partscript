@@ -35,6 +35,10 @@ files in the folders it is given; the props of files they only `import` are used
 Textures are made once and cached in `~/.cache/partscript/textures` (`--cache DIR` moves it,
 `--no-cache` makes them afresh).
 
+`--seed S` deals every prop it builds again with that seed, as if each said `seed=S`, without touching the
+files: one more variant of a weathered fence or a graveyard, the same every time for the same seed. Each
+build writes the same file names, so give each seed its own `-o` folder.
+
 ```text
   crate_stack                                  36 tris      4.1 ms
 1 props -> out in 0.21 s (3 textures made)

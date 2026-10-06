@@ -23,7 +23,7 @@ one-page version of this.
 | option | |
 |---|---|
 | `hero=1` · `budget=N` | triangle budget 6,000 · N (default 2,500) |
-| `seed=WORD` | deals every draw again |
+| `seed=WORD` | deals every draw again (from outside the file: `Project.build(name, seed=)`, `partscript build --seed`) |
 | `px=auto\|N` | texel density: sized to the prop, or N texels a metre |
 | `ao=auto\|H` | grounded shading over the prop's height, or H metres (default 1.4) |
 | `for v=a,b,c` | one prop per value, `{v}` replaced by it |

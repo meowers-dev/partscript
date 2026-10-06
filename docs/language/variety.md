@@ -8,6 +8,7 @@ change something.
 
 - `rand(lo,hi)` is a number drawn for this copy between lo and hi (`rand(hi)` from 0, `rand()` 0 to 1).
 - `pick(a,b,c)` is one of the list, for numbers, materials, words or parameters.
+- `odds(a,b,c)` is 0, 1 or 2, as often as the weights say ([below](#odds-one-fate-of-several)).
 
 Each call is drawn on its own, for each copy, for each use of a part: two `rand(0,1)` on one line
 draw two numbers.
