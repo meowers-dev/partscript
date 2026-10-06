@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PartScript preview</title>
+<style>
+	* { box-sizing: border-box; }
+	body { margin: 0; display: grid; grid-template-columns: 240px 1fr 440px; height: 100vh; background: #1b1d21; color: #d8d8d0;
+		font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+	#list { overflow-y: auto; border-right: 1px solid #333; }
+	#list h1 { font-size: 13px; margin: 0; padding: 10px; background: #26292e; letter-spacing: .05em; }
+	#list h3 { font-size: 11px; margin: 10px 10px 2px; color: #8a8f98; text-transform: uppercase; letter-spacing: .06em; }
+	#list button { display: block; width: 100%; text-align: left; padding: 4px 10px; border: 0; background: none; color: inherit;
+		font: inherit; cursor: pointer; }
+	#list button:hover { background: #2b2f35; }
+	#list button.on { background: #3a4a5e; }
+	#list small { color: #888; float: right; }
+	#view { position: relative; }
+	#view canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+	#hud { position: absolute; left: 10px; top: 8px; color: #aaa; pointer-events: none; }
+	#side { border-left: 1px solid #333; overflow: auto; padding: 10px; }
+	#side h2 { font-size: 14px; margin: 0 0 4px; }
+	#side h4 { margin: 14px 0 4px; font-size: 12px; color: #8a8f98; text-transform: uppercase; letter-spacing: .06em; }
+	.hint { color: #8a8f98; font-size: 12px; }
+	pre { margin: 0; background: #15171a; padding: 8px 0; border: 1px solid #333; overflow-x: auto; }
+	pre .ln { display: block; padding: 0 10px; white-space: pre; min-height: 1.45em; }
+	pre .ln.step { cursor: default; }
+	pre .ln.step:hover, pre .ln.lit { background: #4a4220; color: #ffe88a; }
+	pre .no { color: #555; display: inline-block; width: 3ch; user-select: none; }
+	ul.tree { list-style: none; margin: 0; padding-left: 16px; }
+	ul.tree.root { padding-left: 0; }
+	.node { display: inline-block; padding: 1px 6px; cursor: pointer; border-radius: 2px; }
+	.node:hover, .node.lit { background: #4a4220; color: #ffe88a; }
+	.kind { font-size: 10px; padding: 0 4px; margin-left: 4px; border: 1px solid #555; color: #9aa; text-transform: uppercase; }
+	.kind.prop { border-color: #6a8ac8; color: #9ab8f0; }
+	.kind.def { border-color: #6ab88a; color: #9ae0b0; }
+	.kind.std { border-color: #8a8a6a; color: #c8c89a; }
+	.times { color: #e8a040; margin-left: 4px; }
+	label { display: inline-block; margin: 6px 12px 0 0; color: #aaa; }
+	#def { margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="list"><h1><a href="index.html" style="color:inherit;text-decoration:none">PARTSCRIPT</a> MODELS</h1></div>
+<div id="view"><div id="hud">drag: orbit · wheel: zoom · right-drag: pan</div></div>
+<div id="side">
+	<h2 id="title"></h2>
+	<div id="meta" class="hint"></div>
+	<p><a href="play.html" style="color:#9ab8f0">open the playground: edit and build in the browser</a> ·
+	<a href="docs/index.html" style="color:#9ab8f0">read the docs</a></p>
+	<label><input type="checkbox" id="psx" checked> PSX look (unlit, wobble, fog)</label>
+	<label><input type="checkbox" id="pixel" checked> low-res render</label>
+	<label><input type="checkbox" id="wire"> wireframe</label>
+	<label><input type="checkbox" id="snaps" checked> snap points</label>
+	<h4>Source</h4>
+	<div class="hint">Hover a line to light up what it adds.</div>
+	<pre id="source"></pre>
+	<h4>Built from</h4>
+	<div class="hint">Every part it uses, all the way down. Hover to light it up; click to read it.</div>
+	<ul id="tree" class="tree root"></ul>
+	<div id="defbox" hidden>
+		<h4 id="deftitle"></h4>
+		<pre id="def"></pre>
+	</div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { psx, fog, snapGrid } from "./psx.js";
+
+const $ = id => document.getElementById(id);
+const view = $("view");
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x30343a);
+scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x4a4036, 1.6));
+const sun = new THREE.DirectionalLight(0xfff2dd, 1.8);
+sun.position.set(4, 8, 5);
+scene.add(sun);
+const grid = new THREE.GridHelper(20, 20, 0x555a60, 0x3c4046);
+scene.add(grid);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+const loader = new GLTFLoader();
+let current = null, row = null, data = null, overlays = [];
+window.partscriptViewer = { scene, get model() { return current; } };  // for debugging in the console
+const glow = new THREE.MeshBasicMaterial({ color: 0xffd84a, transparent: true, opacity: 0.6, depthTest: true,
+	polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+
+function resize() {
+	const w = view.clientWidth, h = view.clientHeight;
+	renderer.setPixelRatio($("pixel").checked ? 0.4 : window.devicePixelRatio);
+	renderer.setSize(w, h, true);
+	snapGrid(Math.round(w / 4), Math.round(h / 4));
+	camera.aspect = w / h;
+	camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+$("pixel").addEventListener("change", resize);
+$("wire").addEventListener("change", () => current && current.traverse(o => { if (o.material) o.material.wireframe = $("wire").checked; }));
+$("snaps").addEventListener("change", showSnaps);
+$("psx").addEventListener("change", lookPsx);
+let modelSize = 1;
+function lookPsx() {
+	if (!current) return;
+	const on = $("psx").checked;
+	psx(current, on);
+	grid.visible = !on;
+	fog(scene, on ? modelSize * 1.1 : null, modelSize * 3.2);
+	highlight(null);
+}
+function showSnaps() { current && current.traverse(o => { if (o.name === "snaps") o.visible = $("snaps").checked; }); }
+
+// ------------------------------------------------------------ highlight: faces whose step comes from given source lines
+function meshes() { const out = []; current && current.traverse(o => { if (o.isMesh && !o.userData.overlay) out.push(o); }); return out; }
+
+// lines: source lines of the prop (their steps light up). path: a use chain "file:line/file:line"
+// (every face that came through it lights up, however deep).
+function highlight(lines, path) {
+	for (const o of overlays) o.parent.remove(o);
+	overlays = [];
+	const steps = new Set(), origins = new Set();
+	if (row && lines) row.steps.forEach((line, i) => { if (lines.has(line)) steps.add(i); });
+	if (row && path) row.origins.forEach((o, i) => { if (o === path || o.startsWith(path + "/")) origins.add(i); });
+	const dim = steps.size > 0 || origins.size > 0;
+	for (const mesh of meshes()) {
+		for (const m of [mesh.material].flat()) {
+			// Each material's own look (glass stays see-through) is kept and restored after a highlight.
+			const own = m.userData.own || (m.userData.own = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite });
+			m.transparent = dim || own.transparent;
+			m.opacity = dim ? Math.min(0.25, own.opacity) : own.opacity;
+			m.depthWrite = dim ? false : own.depthWrite;
+			m.needsUpdate = true;
+		}
+		if (!dim) continue;
+		const g = mesh.geometry, tag = g.getAttribute("uv1"), pos = g.getAttribute("position"), index = g.index;
+		if (!tag) continue;
+		const out = [];
+		for (let t = 0; t < index.count; t += 3) {
+			const a = index.getX(t);
+			if (!steps.has(Math.floor(tag.getX(a))) && !origins.has(Math.floor(tag.getY(a)))) continue;
+			for (let k = 0; k < 3; k++) { const v = index.getX(t + k); out.push(pos.getX(v), pos.getY(v), pos.getZ(v)); }
+		}
+		if (!out.length) continue;
+		const geometry = new THREE.BufferGeometry();
+		geometry.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+		const overlay = new THREE.Mesh(geometry, glow);
+		overlay.userData.overlay = true;
+		mesh.add(overlay);
+		overlays.push(overlay);
+	}
+	document.querySelectorAll("pre#source .ln").forEach(el => el.classList.toggle("lit", lines ? lines.has(+el.dataset.line) : false));
+}
+
+// ------------------------------------------------------------ panels
+function sourceLines(pre, text, first, stepLines) {
+	pre.innerHTML = "";
+	text.split("\n").forEach((line, i) => {
+		const el = document.createElement("span");
+		const n = first + i;
+		el.className = "ln" + (stepLines && stepLines.has(n) ? " step" : "");
+		el.dataset.line = n;
+		el.innerHTML = `<span class="no">${n}</span>`;
+		el.append(line);
+		if (stepLines && stepLines.has(n)) {
+			el.onmouseenter = () => highlight(new Set([n]));
+			el.onmouseleave = () => highlight(null);
+		}
+		pre.appendChild(el);
+	});
+}
+
+function showBlock(name) {
+	const block = data.blocks[name];
+	if (!block) return;
+	$("defbox").hidden = false;
+	$("deftitle").textContent = `${name} · ${block.file}:${block.line}`;
+	sourceLines($("def"), block.source, block.line, null);
+}
+
+function treeNode(node, parentFile, parentPath) {
+	const path = (parentPath ? parentPath + "/" : "") + `${parentFile}:${node.at}`;
+	const li = document.createElement("li");
+	const label = document.createElement("span");
+	label.className = "node";
+	label.innerHTML = `${node.name}<span class="kind ${node.kind}">${node.kind}</span>` + (node.count > 1 ? `<span class="times">×${node.count}</span>` : "");
+	label.onmouseenter = () => { label.classList.add("lit"); highlight(null, path); };
+	label.onmouseleave = () => { label.classList.remove("lit"); highlight(null); };
+	label.onclick = () => showBlock(node.name);
+	li.appendChild(label);
+	if (node.children.length) {
+		const ul = document.createElement("ul");
+		ul.className = "tree";
+		for (const child of node.children) ul.appendChild(treeNode(child, node.file, path));
+		li.appendChild(ul);
+	}
+	return li;
+}
+
+function show(next) {
+	row = next;
+	document.querySelectorAll("#list button").forEach(b => b.classList.toggle("on", b.dataset.id === row.id));
+	$("title").textContent = row.title;
+	const parts = countParts(row.tree) - 1;
+	$("meta").textContent = `${row.id} · ${row.triangles} triangles · ${parts} parts used` + (row.snaps ? ` · ${row.snaps} snap points` : "") + ` · built in ${row.ms} ms · ${row.file}:${row.line}`;
+	sourceLines($("source"), row.source, row.line, new Set(row.steps));
+	$("tree").innerHTML = "";
+	for (const child of row.tree.children) $("tree").appendChild(treeNode(child, row.file, ""));
+	if (!row.tree.children.length) $("tree").innerHTML = '<li class="hint">nothing: only shapes</li>';
+	$("defbox").hidden = true;
+	location.hash = row.id;
+	loader.load(`models/${row.id}.glb?${Date.now()}`, gltf => {
+		if (current) scene.remove(current);
+		overlays = [];
+		current = gltf.scene;
+		current.traverse(o => { if (o.material) o.material.wireframe = $("wire").checked; });
+		showSnaps();
+		scene.add(current);
+		const box = new THREE.Box3().setFromObject(current);
+		const size = box.getSize(new THREE.Vector3()).length() || 1;
+		modelSize = size;
+		lookPsx();
+		const centre = box.getCenter(new THREE.Vector3());
+		controls.target.copy(centre);
+		camera.position.copy(centre).add(new THREE.Vector3(0.6, 0.45, 1).multiplyScalar(size * 0.85));
+		camera.near = size / 100; camera.far = size * 50; camera.updateProjectionMatrix();
+	});
+}
+
+function countParts(node) { return 1 + node.children.reduce((n, c) => n + countParts(c), 0); }
+
+fetch("models/index.json").then(r => r.json()).then(json => {
+	data = json;
+	const list = $("list");
+	let group = null;
+	for (const prop of data.props) {
+		if (prop.group !== group) {
+			group = prop.group;
+			const h = document.createElement("h3");
+			h.textContent = group;
+			list.appendChild(h);
+		}
+		const b = document.createElement("button");
+		b.dataset.id = prop.id;
+		b.innerHTML = `${prop.title}<small>${prop.triangles}</small>`;
+		b.onclick = () => show(prop);
+		list.appendChild(b);
+	}
+	show(data.props.find(p => p.id === location.hash.slice(1)) || data.props[0]);
+});
+
+resize();
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

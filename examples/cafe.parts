@@ -1,0 +1,42 @@
+# A cafe terrace made of parts made of parts: bistro sets (a table of its own, the std chairs and
+# parasol), planters, and an A-board menu whose boards are groups, each turned as one.
+
+# A round bistro table on a pedestal.
+def bistro_table rad=.36 top=#e8e0d0/plaster
+  cylinder at=0,0,.73 radius=rad height=.03 mat=top sides=12
+  cylinder at=0,0,on radius=.03 height=.71 mat=steel_dark sides=6
+  box at=0,0,.015 size=.52,.06,.03 mat=steel_dark ring 2 step 90
+
+# A table for two under a parasol; the chairs face the table.
+def cafe_set seat=#8a1c22/paint shade=#2a6a4a/fabric
+  bistro_table
+  chair at=0,-.58,0 turn=0,0,180 m=seat
+  chair at=0,.58,0 m=seat
+  parasol rad=1.15 h=2.35 m=shade
+
+# A planter box of round shrubs.
+def planter w=.9 m=wood leaf=#3a6a2a/fabric
+  box at=0,0,on size=w,.32,.42 mat=m
+  box at=0,0,.41 size=w-.06,.26,.03 mat=#4a3a2a/concrete
+  sphere at=-w/3,0,.58 radius=.2 mat=leaf sides=6 rings=4 jitter=.02,30 repeat 3 every w/3,0,0
+
+# An A-board menu: two boards leaning together, each a group (at) turned as one.
+def a_board text=COFFEE
+  group at=0,-.09,.45 turn=-10,0,0 {
+    box at=0,0,0 size=.5,.025,.9 mat=#23262a/paint
+    label at=0,-.014,.22 width=.42 height=.14 text="CAFE" bg=#23262a fg=#f0e8d0
+    label at=0,-.014,-.08 width=.42 height=.34 text="COFFEE" sub="TEA  CAKE" bg=#23262a fg=#e8c070
+  }
+  group at=0,.09,.45 turn=10,0,0 {
+    box at=0,0,0 size=.5,.025,.9 mat=#23262a/paint
+  }
+
+# Two sets, one red and green and one blue and gold, behind a front of planters and rails.
+prop cafe_terrace "Cafe Terrace" street hero=1
+  cafe_set at=-1.3,0,0
+  cafe_set at=1.3,0,0 seat=#2a5a8a/paint shade=#c89a2a/fabric
+
+  planter at=-2.15,-1.05,0 repeat 2 every 4.3,0,0
+  rail at=-1.25,-1.05,0 w=1.3 n=3
+  rail at=1.25,-1.05,0 w=1.3 n=3
+  a_board at=0,-1.25,0

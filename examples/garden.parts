@@ -1,0 +1,75 @@
+# A garden where every copy is different.
+#
+#   i                        the copy's number
+#   rand(lo,hi)              a number drawn for each copy;  pick(a,b,c) one of a list
+#   scatter N over W,D       N copies spread over an area (apart G keeps them G apart)
+#   when=                    keep a copy only while it holds (and lets a part use itself)
+#   fade=                    a shape darker toward its base
+#
+# The draws are seeded: same file, same garden. seed=N on a prop deals it again.
+
+# ------------------------------------------------------------------ flowers and grass
+
+# A flower: a stem, a five-sided head and its eye. The colour and height are parameters.
+def flower h=.3 col=#e84a6a/plastic
+  cylinder at=0,0,on radius=.006 height=h mat=#3a6a2a/plastic sides=3 caps=0 fade=.5
+  cylinder at=0,0,h radius=.05 height=.012 mat=col sides=5 turn=12,0,0
+  sphere at=0,-.002,h+.01 radius=.014 mat=#f0d040/plastic sides=4 rings=2
+
+# A tuft of grass: five blades, each leaning its own way, darker at the root.
+def tuft h=.3 col=#4a7a2a/plastic
+  box at=0,0,on size=.06,.015,h*rand(.6,1.1) mat=col taper=0 turn=rand(10,28),0,i*72+rand(-15,15) fade=.4 ring 5 step 0
+
+# A bed of forty flowers: scattered over the soil, each a colour picked from five, its own height and lean.
+prop flower_bed "Flower Bed" garden hero=1
+  # The soil in a frame of boards.
+  box at=0,0,on size=1.8,.9,.12 mat=#5a3a22/concrete
+  box at=.92,0,on size=.04,.98,.2 mat=wood mirror x
+  box at=0,.47,on size=1.88,.04,.2 mat=wood mirror y
+
+  # The flowers.
+  flower at=0,0,.12 h=rand(.22,.38) col=pick(#e84a6a,#f0d040,#f0f0f0,#8a4ac8,#e8823a)/plastic \
+      turn=rand(-10,10),rand(-10,10),rand(0,360) scatter 40 over 1.6,.75 apart .09
+
+# A patch of meadow: eighty tufts in four greens, flowers among them, stones half sunk in the ground.
+prop wild_meadow "Wild Meadow" garden hero=1
+  cylinder at=0,0,on radius=1.6 height=.04 mat=#5a5a2a/plaster sides=12
+  tuft at=0,0,.04 h=rand(.22,.48) col=pick(#4a7a2a,#5a8a32,#3a6a2a,#7a8a3a)/plastic scatter 80 within 1.45 apart .12
+  flower at=0,0,.04 h=rand(.3,.5) col=pick(#e84a6a,#f0f0f0,#8a4ac8)/plastic turn=0,0,rand(0,360) \
+      scatter 16 within 1.4 apart .25
+  sphere at=0,0,.02 radius=rand(.12,.24) mat=stone sides=6 rings=3 scatter 4 within 1.2 apart .7
+
+# ------------------------------------------------------------------ a tree
+
+# A branch carrying three smaller branches, down to depth 0, where leaves grow instead:
+# the branch uses itself, and when= stops it.
+def branch len=1 rad=.08 depth=3 leaf=pick(#3a6a2a,#4a7a2a,#2a5a2a)/fabric
+  cylinder at=0,0,on radius=rad height=len mat=#5a3a22/wood top_radius=rad*.7 sides=5 fade=.7
+  branch at=0,0,len*rand(.7,.95) turn=rand(28,42),0,i*120+rand(-25,25) scale=.68 len=len rad=rad depth=depth-1 \
+      leaf=leaf when=depth>0 ring 3 step 0
+  sphere at=0,0,len radius=rand(.35,.5)*len mat=leaf sides=6 rings=4 when=depth==0
+
+prop oak_tree "Oak Tree" garden hero=1
+  branch len=1.5 rad=.13 depth=3
+
+# ------------------------------------------------------------------ a fence and a pile
+
+# A picket fence: pointed pickets (taper) that alternate in height by i, one missing (when=), lying in front.
+prop picket_fence "Picket Fence" garden
+  set w=3 n=20 paint=#e8e4d8/paint
+
+  # Two posts and two rails.
+  box at=-w/2,.04,on size=.08,.08,1.05 mat=paint repeat 2 every w,0,0
+  box at=0,.04,.3 size=w,.03,.07 mat=paint repeat 2 every 0,0,.45
+
+  # The pickets, the thirteenth gone, and the one that fell.
+  box at=-w/2+.1,0,on size=.08,.02,.85+.06*(i%2) mat=paint taper=.4,1 when=i!=13 fade=.75 \
+      repeat n every (w-.2)/(n-1),0,0
+  box at=.45,-.4,.01 size=.08,.02,.85 mat=paint turn=-90,0,25
+
+# Rubble: thirty bricks tumbled over a disc and a dozen more on top, each turned its own way, with stones.
+prop rubble_pile "Rubble Pile" street
+  box at=0,0,on size=.22,.1,.07 mat=brick turn=rand(-25,25),rand(-25,25),rand(0,360) fade=.75 scatter 30 within .9 apart .1
+  box at=0,0,.07 size=.22,.1,.07 mat=brick turn=rand(-35,35),rand(-35,35),rand(0,360) scatter 12 within .45
+  sphere at=0,0,on radius=rand(.05,.12) mat=concrete sides=5 rings=3 scatter 14 within 1.1 apart .08
+  box at=.55,.3,.04 size=.9,.06,.04 mat=wood turn=0,-8,rand(20,40)

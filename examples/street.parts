@@ -1,0 +1,78 @@
+# Street furniture. Each prop shows off part of the language: expressions and variants (the cone),
+# lathes and rotated copies (the lamp), glass and printed labels (the shelter), extruded profiles (the car).
+
+# A traffic cone in two colours. Its reflective bands follow the cone's slope: each band's radius is worked out
+# at its own bottom and top (r0, r1) from the cone's base radius, top radius and height.
+prop traffic_cone_{c} "Traffic Cone" street for c=e25a1a,d8c020
+  set rb=.16 rt=.03 ch=.64 z0=.05
+
+  # A rubber base and the cone.
+  bevel_box at=0,0,on size=.42,.42,.05 bevel=.015 mat=rubber
+  cylinder at=0,0,on(z0) radius=rb height=ch mat=#{c}/plastic top_radius=rt sides=12
+
+  # Two white bands, each as wide at its top and bottom as the cone is there.
+  set slope=(rb-rt)/ch band=#ece8dc/plastic
+  set r0=rb-slope*(.28-z0)+.004 r1=rb-slope*(.38-z0)+.004
+  cylinder at=0,0,.33 radius=r0 height=.1 mat=band top_radius=r1 sides=12 caps=0
+  set r0=rb-slope*(.48-z0)+.004 r1=rb-slope*(.555-z0)+.004
+  cylinder at=0,0,.52 radius=r0 height=.07 mat=band top_radius=r1 sides=12 caps=0
+
+# A heritage street lamp: a turned base (lathe), a lantern of six glass panes (ring 6 places
+# its six frame bars) under a cap.
+prop street_lamp "Street Lamp" street
+  lathe at=0,0,0 mat=steel_dark .19:0 .19:.07 .15:.11 .11:.42 .085:.5 .06:.58 sides=10 cap=1
+  cylinder at=0,0,on(.58) radius=.05 height=2.5 mat=steel_dark sides=8
+  cylinder at=0,0,1.4 radius=.065 height=.06 mat=steel_dark sides=8 repeat 2 every 0,0,1.5
+
+  # The ladder bar, and the lantern on top under its cap.
+  box at=0,0,2.86 size=.56,.035,.035 mat=steel_dark
+  sphere at=.28,0,2.86 radius=.03 mat=steel_dark sides=6 rings=3 mirror x
+  cylinder at=0,0,on(3.08) radius=.1 height=.05 mat=steel_dark sides=6
+  cylinder at=0,0,on(3.13) radius=.12 height=.34 mat=lamp_warm sides=6 top_radius=.16
+  box at=.14,0,3.3 size=.025,.025,.36 mat=steel_dark ring 6 step 60
+  cone at=0,0,on(3.47) radius=.22 height=.16 mat=steel_dark sides=6
+  sphere at=0,0,3.66 radius=.035 mat=steel_dark sides=6 rings=3
+
+# A bus shelter: a glass back and side (glass is see-through, double-sided), a bench, a timetable and a stop sign.
+prop bus_shelter "Bus Shelter" street hero=1
+  set w=2.6 d=1.3 h=2.3
+
+  # Four posts and a roof with a red edge.
+  box at=w/2,d/2-.03,on size=.07,.07,h mat=steel_grey mirror x
+  box at=w/2,-d/2+.03,on size=.07,.07,h mat=steel_grey mirror x
+  bevel_box at=0,-.05,h+.04 size=w+.2,d+.2,.08 bevel=.02 mat=steel_grey
+  box at=0,-d/2-.06,h+.04 size=w+.2,.03,.16 mat=#c83a2a/paint
+
+  # Glass at the back and one end, each between two rails.
+  panel at=0,d/2-.03,1.2 width=w-.07 height=1.8 mat=glass double=1
+  box at=0,d/2-.03,.27 size=w,.05,.06 mat=steel_grey repeat 2 every 0,0,1.86
+  panel at=w/2,0,1.2 width=d-.07 height=1.8 mat=glass turn=0,0,90 double=1
+  box at=w/2,0,.27 size=.05,d,.06 mat=steel_grey repeat 2 every 0,0,1.86
+
+  # A bench, the timetable, and the stop sign on its own pole.
+  bench at=0,.3,0 w=1.9 d=.36 m=#2a5a8a/paint leg=steel_dark
+  label at=.75,d/2-.06,1.45 width=.5 height=.66 text="TIMES" sub="EVERY 10 MIN" bg=#f0f0e8 fg=#2a2a2a
+  box at=-w/2-.45,-d/2+.03,on size=.07,.07,2.8 mat=steel_grey
+  cylinder at=-w/2-.45,-d/2+.03,2.78 radius=.24 height=.04 mat=#c83a2a/paint axis=y sides=16
+  label at=-w/2-.45,-d/2+.005,2.78 width=.4 height=.12 text="BUS STOP" bg=#c83a2a fg=#ffffff
+
+# A small hatchback, from two outlines pushed through (ext): the body and a glass cabin narrowing toward the roof.
+prop hatchback "Hatchback" street hero=1
+  set paint=#c83a2a/metal
+
+  # The body, the cabin narrowing toward the roof, the roof and the pillar between the doors.
+  extrude at=0,0,0 width=1.64 mat=paint -1.86:.32 1.86:.32 1.92:.56 1.8:.8 .85:.92 -1.72:.92 -1.92:.64 axis=y
+  extrude at=0,0,0 width=1.46 mat=glass_opaque .85:.92 .3:1.33 -1.3:1.36 -1.72:.94 axis=y taper=.88
+  box at=-.5,0,1.375 size=1.64,1.29,.05 mat=paint
+  box at=-.45,0,1.14 size=.1,1.4,.44 mat=paint
+
+  # Four wheels under their arches, bumpers, a grille, lights, mirrors and number plates.
+  wheel at=1.2,.75,.32 turn=0,0,90 mirror xy
+  box at=1.2,.8,.5 size=.9,.05,.16 mat=rubber mirror xy
+  box at=1.94,0,.42 size=.1,1.62,.14 mat=rubber mirror x
+  box at=1.9,0,.64 size=.03,.6,.12 mat=steel_dark
+  box at=1.89,.58,.68 size=.04,.3,.1 mat=lamp_cold mirror y
+  box at=-1.93,.6,.78 size=.04,.22,.14 mat=lamp_red mirror y
+  box at=.68,.84,1.0 size=.1,.1,.08 mat=paint mirror y
+  label at=2,0,.42 width=.5 height=.11 text="PS 26" bg=#f0d040 fg=#1a1a1a turn=0,0,90
+  label at=-2,0,.42 width=.5 height=.11 text="PS 26" bg=#f0f0e8 fg=#1a1a1a turn=0,0,-90

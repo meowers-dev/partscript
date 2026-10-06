@@ -1,0 +1,110 @@
+# Showpieces: the shapes and tools for detail.
+#
+#   torus                    rings and tyres;  frame  a panel with a hole in it
+#   smooth=N                 a pipe (or an along= line) curved through its points
+#   twist= bend= shrink=     what a line or group makes, reshaped by height
+#   repeat N ... as k        the copy's number by a name of its own (grid ... as col,row)
+#   if EXPR { }              a group kept only while EXPR holds
+#   \                        at the end of a line: it carries on onto the next
+
+set frame_paint=#2a3a4a/paint chrome=steel_grey tyre=#1e1e1e/rubber
+
+# ------------------------------------------------------------------ a bicycle
+
+# A spoked wheel lying flat: tyre, rim, sixteen spokes round the hub. Stand it up with a group turn.
+def bike_wheel rad=.33
+  torus at=0,0,0 radius=rad thick=.025 mat=tyre sides=24 rings=6
+  torus at=0,0,0 radius=rad-.03 thick=.012 mat=chrome sides=24 rings=4
+  box at=(rad-.03)/2,0,0 size=rad-.04,.006,.006 mat=chrome ring 16
+  cylinder at=0,0,0 radius=.035 height=.09 mat=chrome sides=8
+
+prop bicycle "Bicycle" showpieces
+  group at=0,-.52,.35 turn=0,90,0 {
+    bike_wheel
+  }
+  group at=0,.52,.35 turn=0,90,0 {
+    bike_wheel
+  }
+
+  # The frame, the fork up to the handlebars, the seat post and saddle, the chainring and pedals.
+  pipe mat=frame_paint radius=.022 0,.52,.35 0,.1,.38 0,-.18,.85 0,.18,.82 0,.52,.35 0,.1,.38 sides=6
+  pipe mat=frame_paint radius=.02 0,-.52,.35 0,-.18,.85 0,-.24,1.0 sides=6
+  pipe mat=chrome radius=.016 -.24,-.3,1.02 -.12,-.24,1.0 0,-.24,1.0 .12,-.24,1.0 .24,-.3,1.02 smooth=4 sides=5
+  pipe mat=frame_paint radius=.018 0,.1,.38 0,.12,.92 sides=6
+  bevel_box at=0,.14,.96 size=.14,.26,.06 bevel=.02 mat=#3a2a1a/fabric shrink=.8
+  cylinder at=0,.1,.38 radius=.1 height=.012 mat=chrome sides=16 axis=x
+  box at=.05,.1+.08,.38 size=.012,.03,.18 mat=steel_dark turn=0,0,0 repeat 2 every 0,-.16,0
+
+# ------------------------------------------------------------------ a ship's wheel
+
+# The wheel flat: rim, hub and eight spokes that run out through the rim into turned handles (handles=0 for none).
+def helm rad=.45 handles=1 wood=#6a4a2a/wood
+  torus at=0,0,0 radius=rad thick=.035 mat=wood sides=24 rings=6
+  torus at=0,0,0 radius=rad*.35 thick=.03 mat=wood sides=16 rings=6
+  cylinder at=0,0,0 radius=.07 height=.12 mat=brass sides=10
+  box at=rad/2,0,0 size=rad,.035,.035 mat=wood ring 8
+  if handles == 1 {
+    lathe at=rad+.02,0,0 mat=wood 0:0 .03:.01 .025:.08 .035:.13 .001:.17 sides=8 turn=0,90,0 ring 8
+  }
+
+prop ships_wheel "Ship's Wheel" showpieces
+  box at=0,.15,on size=.18,.18,.9 mat=#5a3a22/wood shrink=.8
+  group at=0,0,1.05 turn=90,0,0 {
+    helm
+  }
+
+# ------------------------------------------------------------------ a twisted column
+
+# Twelve stacked slices twisted a quarter turn as one group, on a base, under a capital.
+prop twisted_column "Twisted Column" showpieces
+  bevel_box at=0,0,on size=.7,.7,.2 bevel=.04 mat=#d8d0c0/stone
+  group twist=90 {
+    bevel_box at=0,0,on(.2+k*.2) size=.42,.42,.2 bevel=.05 mat=#e0d8c8/stone repeat 12 every 0,0,0 as k
+  }
+  bevel_box at=0,0,on(2.6) size=.6,.6,.12 bevel=.03 mat=#d8d0c0/stone
+  bevel_box at=0,0,on(2.72) size=.75,.75,.1 bevel=.03 mat=#d8d0c0/stone
+
+# ------------------------------------------------------------------ a gramophone
+
+# A box with a turntable, the horn bent over it on its arm, and the crank at the side.
+prop gramophone "Gramophone" showpieces
+  bevel_box at=0,0,on size=.42,.42,.16 bevel=.02 mat=#5a3a22/wood
+  cylinder at=0,0,on(.16) radius=.17 height=.015 mat=#1a1a1a/plastic sides=16
+  cylinder at=0,0,on(.175) radius=.03 height=.008 mat=#c84a3a/paint sides=8
+  cylinder at=.17,.15,on(.16) radius=.025 height=.12 mat=brass sides=6
+  pipe mat=brass radius=.012 .17,.15,.27 .1,.08,.3 .04,.0,.19 smooth=4 sides=5
+  group at=.17,.15,.27 {
+    cylinder at=0,0,on radius=.03 height=.65 mat=brass top_radius=.24 sides=12 caps=0 bend=-80
+  }
+  box at=.21,0,.08 size=.01,.03,.03 mat=brass
+  pipe mat=brass radius=.006 .215,0,.08 .26,0,.08 .26,.03,.12 sides=4
+
+# ------------------------------------------------------------------ a gallery wall
+
+# A painting in its own frame: a sky, a ground and a sun drawn for this copy.
+def painting pw=.6 ph=.45
+  frame at=0,0,0 width=pw+.12 height=ph+.12 depth=.04 mat=pick(#c8a040/metal,#3a2a1a/wood,#2a2a2a/paint) hole=pw,ph
+  panel at=0,.01,ph*.12 width=pw height=ph*.76 mat=pick(#7aa0c8,#d89a6a,#2a3a5a,#c8b8a0)/paint
+  panel at=0,.009,-ph*.38 width=pw height=ph*.24 mat=pick(#4a6a2a,#8a7a4a,#3a5a6a)/paint
+  cylinder at=pw*rand(-.3,.3),.008,ph*rand(.05,.3) radius=ph*.08 height=.005 mat=pick(#f0e0a0,#f0f0e8)/paint axis=y sides=8
+
+# Nine paintings on a wall in a three by three grid, the middle one larger; each frame draws its size.
+prop gallery_wall "Gallery Wall" showpieces
+  box at=0,.06,on size=3.2,.1,2.6 mat=#d8d0bc/plaster
+  painting at=-1+col*1,0,.6+row*.75 pw=rand(.45,.6) ph=rand(.35,.5) when="col != 1 or row != 1" grid 3x3 every 0,0 as col,row
+  painting at=0,0,1.35 pw=.75 ph=.55
+
+# ------------------------------------------------------------------ a hanging plant
+
+# A pot on three chains with vines trailing over its rim: each vine a smooth curve, leaves set along it.
+# One line of points names the vine's curve; the stem follows it and the leaves are set along it.
+def vine drop=.8 lean=.3
+  set path="0,0,0 lean*.5,.05,-drop*.3 lean*.8,-.05,-drop*.65 lean,0,-drop"
+  pipe mat=#3a5a2a/plastic radius=.008 path smooth=5 sides=4
+  box at=0,0,0 size=.07,.01,.045 mat=pick(#3a6a2a,#4a7a32,#2f5f26)/fabric turn=rand(-30,30),0,rand(0,360) along=path every=.09 smooth=5
+
+prop hanging_plant "Hanging Plant" showpieces
+  pipe mat=steel_dark radius=.005 0,0,1.0 .17,0,.45 sides=3 ring 3
+  cylinder at=0,0,on(.3) radius=.17 height=.18 mat=#a85a3a/plaster top_radius=.2 sides=10
+  sphere at=0,0,.5 radius=.1 mat=pick(#3a6a2a,#4a7a32)/fabric sides=6 rings=4 wobble=.03 scatter 5 within .12
+  vine at=.18,0,.47 drop=rand(.5,.9) lean=rand(.15,.35) turn=0,0,k*72+rand(-20,20) repeat 5 every 0,0,0 as k

@@ -1,0 +1,394 @@
+# Buildings, laid out room by room on a grid.
+#
+#   kit NAME grid=3 ...      the pieces by role: wall kinds, floor, roof, parapet, corner, stair
+#   room X,Y W,D             a room over grid cells, on a storey, as many storeys high as asked
+#   open X,Y SIDE KIND       one wall swapped for a door, a window or a shop front
+#   stair X,Y DIR            the kit's stair, climbing a storey
+#   fill=DEF                 a def that furnishes the room. It is given the room's inside size (w, d, h),
+#                            its storey (level) and where its doors are (door_s, door_n, door_w, door_e:
+#                            metres along that wall from the inside front-left corner, -1 for none)
+#   cutaway=open             front walls and roof left off, to look in like a dolls' house
+
+set outer=brick inner=#d8d0bc/plaster trim=#ece8dc/paint stone=#c8c0b0/stone slabc=#8a8a84/concrete
+
+# ------------------------------------------------------------------ the kit: 3 m grid, 3 m storeys, 20 cm walls
+# Wall pieces stand on the floor line, centred, along X, their inside facing the front (-Y).
+
+# A block of wall from x0 to x1 and z0 to z1: brick outside, plaster inside.
+def wall_block x0=-1.5 x1=1.5 z0=0 z1=3
+  box at=(x0+x1)/2,.05,(z0+z1)/2 size=x1-x0,.1,z1-z0 mat=outer
+  box at=(x0+x1)/2,-.05,(z0+z1)/2 size=x1-x0,.1,z1-z0 mat=inner
+
+# A block of partition between two rooms: plaster both sides.
+def partition_block x0=-1.5 x1=1.5 z0=0 z1=3
+  box at=(x0+x1)/2,0,(z0+z1)/2 size=x1-x0,.1,z1-z0 mat=inner
+
+prop flat_wall "Wall" building
+  wall_block
+
+prop flat_window "Wall, Window" building
+  wall_block z1=.9
+  wall_block z0=2.3
+  wall_block x1=-.6 z0=.9 z1=2.3
+  wall_block x0=.6 z0=.9 z1=2.3
+  panel at=0,0,1.6 width=1.2 height=1.4 mat=glass double=1
+  box at=0,0,1.6 size=.05,.12,1.4 mat=trim
+  box at=0,0,1.85 size=1.2,.12,.05 mat=trim
+  box at=-.6,0,1.6 size=.05,.2,1.4 mat=trim mirror x
+  box at=0,.15,.87 size=1.4,.12,.06 mat=stone
+  box at=0,.12,2.38 size=1.5,.06,.16 mat=stone
+  box at=0,-.13,.89 size=1.3,.08,.03 mat=trim
+
+prop flat_door "Wall, Front Door" building
+  wall_block z0=2.3
+  wall_block x1=-.55 z1=2.3
+  wall_block x0=.55 z1=2.3
+  box at=0,.12,2.4 size=1.4,.06,.2 mat=stone
+  box at=-.55,0,on size=.06,.22,2.3 mat=trim mirror x
+  group at=-.5,-.02,0 turn=0,0,-75 {
+    box at=.5,0,on size=1,.05,2.25 mat=#2a4a6a/paint
+    box at=.85,-.04,1.05 size=.04,.04,.15 mat=brass
+    label at=.5,-.03,1.7 width=.24 height=.12 text="12" bg=#d8c070 fg=#2a2a2a
+  }
+  box at=0,.4,.07 size=1.4,.6,.14 mat=#a8a294/stone
+
+prop flat_shopfront "Wall, Shop Front" building
+  wall_block z0=2.5
+  wall_block z1=.45
+  panel at=0,0,1.48 width=2.9 height=2.05 mat=glass double=1
+  box at=-1.47,0,1.48 size=.06,.14,2.05 mat=#2a4a3a/paint mirror x
+  box at=0,0,1.48 size=.05,.12,2.05 mat=#2a4a3a/paint
+  box at=0,.13,2.75 size=3,.06,.44 mat=#2a4a3a/paint
+
+prop flat_partition "Partition" building
+  partition_block
+
+prop flat_inner_door "Partition, Door" building
+  partition_block z0=2.1
+  partition_block x1=-.45 z1=2.1
+  partition_block x0=.45 z1=2.1
+  box at=-.45,0,on size=.05,.14,2.1 mat=trim mirror x
+  box at=0,0,2.08 size=.95,.14,.05 mat=trim
+  group at=-.42,-.03,0 turn=0,0,-70 {
+    box at=.42,0,on size=.84,.04,2.04 mat=#e8e0d0/paint
+    sphere at=.75,-.04,1.0 radius=.03 mat=brass sides=6 rings=3
+  }
+
+prop flat_corner "Corner" building
+  box at=0,0,on size=.2,.2,3 mat=outer
+
+# Floors: the slab with its top at the floor line, centred on the cell, and a finish on it.
+prop floor_concrete "Floor, Concrete" building
+  box at=0,0,-.1 size=3,3,.2 mat=slabc
+
+prop floor_boards "Floor, Boards" building
+  box at=0,0,-.105 size=3,3,.19 mat=slabc
+  box at=-1.35+i*.3,0,-.005 size=.29,3,.01 mat=pick(#8a5a32,#7a4e2a,#946238,#82552f)/wood repeat 10 every 0,0,0
+
+prop floor_tiles "Floor, Tiles" building
+  box at=0,0,-.105 size=3,3,.19 mat=slabc
+  box at=-1.2,-1.2,-.005 size=.59,.59,.01 mat=#e8e4d8/plaster|#3a3a3e/plaster grid 5x5 every .6,.6
+
+prop floor_carpet "Floor, Carpet" building
+  box at=0,0,-.105 size=3,3,.19 mat=slabc
+  box at=0,0,-.005 size=3,3,.01 mat=#6a4a5a/fabric
+
+prop flat_roof "Roof" building
+  box at=0,0,-.1 size=3,3,.2 mat=slabc
+  box at=0,0,.01 size=3,3,.02 mat=#3a3a3a/rubber
+
+prop flat_parapet "Parapet" building
+  box at=0,0,on size=3,.2,.7 mat=outer
+  box at=0,0,.73 size=3.1,.3,.06 mat=stone
+
+# A dog-leg stair a storey high in one cell, rising toward +Y: a flight up the left half to a landing across
+# the back, then a flight up the right half back toward the front, so it lets you off beside where you got on
+# (stair_exit=back). Stacked a storey apart they make a stairwell; the steps' sloping undersides leave headroom.
+prop flat_stair "Stair" building
+  box at=-.7,.135+i*.27,.214*(i+1)-.175 size=1.2,.27,.35 mat=slabc repeat 7 every 0,0,0
+  box at=0,2.4,1.4 size=2.8,1.0,.2 mat=slabc
+  box at=.7,1.765-i*.27,1.5+.214*(i+1)-.175 size=1.2,.27,.35 mat=slabc repeat 7 every 0,0,0
+  # Inner handrails, 90 cm above each flight, on balusters standing on every other step. Each rail's ends
+  # are links: the join here wraps the rail round the half landing, the building's join carries it on
+  # round the landing between one storey's stair and the next.
+  pipe mat=steel_dark radius=.025 -.1,0,.9 -.1,1.9,2.4 sides=6
+  pipe mat=steel_dark radius=.025 .1,1.9,2.4 .1,0,3.9 sides=6
+  box at=-.1,.135+k*.54,on(.214*(2*k+1)) size=.03,.03,.9 mat=steel_dark repeat 4 every 0,0,0 as k
+  box at=.1,1.765-k*.54,on(1.5+.214*(2*k+1)) size=.03,.03,.9 mat=steel_dark repeat 4 every 0,0,0 as k
+  link rail at=-.1,0,.9 toward=-y
+  link rail at=-.1,1.9,2.4 toward=+y
+  link rail at=.1,1.9,2.4 toward=+y
+  link rail at=.1,0,3.9 toward=-y
+  join rail reach=.5
+
+# Two storeys of that stair on their own: the rail wraps round the half landings (the stair's own join) and
+# round the landing between them (this join), with nothing left loose but the bottom and the top.
+prop stairwell "Stairwell" building
+  flat_stair
+  flat_stair at=0,0,3
+  join rail reach=.5
+
+kit flat grid=3 storey=3 wall=.2 parapet_lift=0 stair_cells=1 stair_exit=back
+  wall solid=flat_wall window=flat_window door=flat_door shopfront=flat_shopfront inner_door=flat_inner_door
+  piece floor=floor_boards roof=flat_roof parapet=flat_parapet partition=flat_partition corner=flat_corner stair=flat_stair
+
+# ------------------------------------------------------------------ furniture: each draws its own colours and clutter
+
+def pot_plant size=1
+  cylinder at=0,0,on radius=.13*size height=.28*size mat=#a85a3a/plaster top_radius=.16*size sides=8
+  sphere at=0,0,.42*size radius=.13*size mat=pick(#3a6a2a,#2f5f26,#4a7a32)/fabric sides=6 rings=4 wobble=.03 scatter 4 within .1*size
+
+def picture pw=.6 ph=.45
+  box at=0,0,0 size=pw+.06,.03,ph+.06 mat=pick(#3a2a1a,#c8a040,#2a2a2a)/wood
+  panel at=0,-.016,ph*rand(.05,.25) width=pw height=ph*rand(.3,.6) mat=pick(#4a6a2a,#8a7a4a,#3a5a6a,#6a4a3a)/paint
+  panel at=0,-.017,ph*rand(-.3,.1) width=pw height=ph*.5 mat=pick(#7aa0c8,#d89a6a,#2a3a5a,#c8b8a0)/paint
+
+def rug rw=2 rd=1.4
+  box at=0,0,.004 size=rw,rd,.008 mat=pick(#8a2a2a,#2a4a6a,#6a5a2a,#4a2a4a)/fabric
+  box at=0,0,.006 size=rw-.2,rd-.2,.008 mat=pick(#c8a060,#d8c8a0,#a85a3a)/fabric
+
+def sofa col=pick(#5a6a4a,#6a3a3a,#3a4a6a,#7a6a5a)/fabric
+  bevel_box at=0,0,on size=1.9,.85,.42 bevel=.06 mat=col
+  bevel_box at=0,.33,on size=1.9,.2,.85 bevel=.06 mat=col
+  bevel_box at=.88,0,on size=.18,.85,.62 bevel=.06 mat=col mirror x
+  bevel_box at=-.52,-.02,.48 size=.52,.6,.14 bevel=.05 mat=col wobble=.01 repeat 3 every .52,0,0
+  bevel_box at=-.4+i*.75,.18,.66 size=.36,.12,.32 bevel=.05 mat=pick(#e8c070,#c86a4a,#8aa0b8,#e8e0d0)/fabric \
+      turn=rand(-15,15),0,rand(-10,10) repeat 2 every 0,0,0
+
+def armchair col=pick(#8a5a3a,#5a3a4a,#4a5a6a)/fabric
+  bevel_box at=0,0,on size=.85,.8,.42 bevel=.06 mat=col
+  bevel_box at=0,.31,on size=.85,.18,.82 bevel=.06 mat=col
+  bevel_box at=.36,0,on size=.14,.8,.6 bevel=.05 mat=col mirror x
+
+def mug
+  cylinder at=0,0,on radius=.04 height=.09 mat=pick(#e8e0d0,#c84a3a,#3a6a9a,#e8c040)/plastic sides=6
+
+def coffee_table
+  table w=1.0 d=.55 h=.42 top=pick(#5a3a22,#8a6a42)/wood
+  box at=0,0,on(.42) size=.2,.28,.03 mat=pick(#8a1c22,#2a4a7a,#3a6a3a,#c8a040)/paint turn=0,0,rand(0,360) scatter 2 over .7,.35
+  mug at=0,0,.42 scatter 2 over .7,.3 apart .12
+
+def tv_unit
+  box at=0,0,on size=1.4,.45,.5 mat=#3a2a1e/wood
+  box at=0,0,on(.5) size=1.0,.08,.6 mat=#1a1a1a/plastic
+  panel at=0,-.045,.8 width=.92 height=.52 mat=screen
+
+def floor_lamp
+  cylinder at=0,0,on radius=.15 height=.03 mat=steel_dark sides=8
+  cylinder at=0,0,on radius=.015 height=1.5 mat=steel_dark sides=5
+  cylinder at=0,0,1.55 radius=.24 height=.28 mat=pick(#e8d8b0,#c8a070,#e8e0d0)/fabric top_radius=.15 sides=8 caps=0
+  sphere at=0,0,1.5 radius=.06 mat=lamp_warm sides=6 rings=3
+
+def ceiling_lamp
+  pipe mat=steel_dark radius=.006 0,0,0 0,0,-.5 sides=3
+  cone at=0,0,-.6 radius=.2 height=.15 mat=pick(#e8e0d0,#3a4a3a,#8a3a2a)/plastic sides=8
+  sphere at=0,0,-.62 radius=.06 mat=lamp_warm sides=6 rings=3
+
+def bed bw=1.5 duvet=pick(#e8e0d0,#3a5a8a,#8a4a5a,#5a7a5a,#c8a060)/fabric
+  box at=0,0,on size=bw+.1,2.1,.35 mat=#5a3a22/wood
+  box at=0,1.02,on size=bw+.1,.08,1.0 mat=#5a3a22/wood
+  bevel_box at=0,0,.42 size=bw,2,.16 bevel=.04 mat=#ece8e0/fabric
+  bevel_box at=0,-.22,.52 size=bw+.04,1.5,.1 bevel=.04 mat=duvet wobble=.012
+  bevel_box at=-bw/4,.78,.56 size=bw/2-.1,.38,.14 bevel=.05 mat=#f0ece4/fabric wobble=.01 repeat 2 every bw/2,0,0
+
+def bedside
+  box at=0,0,on size=.45,.4,.5 mat=#5a3a22/wood
+  cylinder at=0,0,on(.5) radius=.06 height=.25 mat=pick(#c8a040,#3a6a6a,#e8e0d0)/plastic sides=6
+  cylinder at=0,0,.8 radius=.13 height=.15 mat=#e8d8b0/fabric top_radius=.08 sides=6 caps=0
+
+def wardrobe col=pick(#6a4a2a,#e8e4dc,#4a5a4a)/paint
+  box at=0,0,on size=1.2,.6,2.0 mat=col
+  box at=-.3,-.31,1.0 size=.58,.02,1.9 mat=col repeat 2 every .6,0,0
+  box at=-.04,-.33,1.05 size=.02,.03,.3 mat=brass mirror x
+
+def counter_run len=2.4
+  box at=.3,0,on size=.58,.58,.86 mat=pick(#e8e4dc,#4a6a7a,#7a8a5a)/paint repeat (floor(len/.6)) every .6,0,0
+  box at=len/2,0,.88 size=len,.62,.04 mat=#3a3a3a/stone
+  box at=.3,-.3,.75 size=.12,.02,.02 mat=steel_grey repeat (floor(len/.6)) every .6,0,0
+
+# A run of kitchen units len long from x=0, with a hob near one end and a sink near the other.
+def kitchen_kit len=1.8
+  counter_run at=0,0,0 len=len
+  box at=.6,0,on(.9) size=.5,.5,.02 mat=#1a1a1a/plastic
+  cylinder at=.48,-.1,.92 radius=.08 height=.01 mat=steel_dark sides=8 grid 2x2 every .24,.2
+  box at=len-.4,0,on(.86) size=.5,.42,.04 mat=steel_grey
+  cylinder at=len-.4,.18,1.0 radius=.015 height=.25 mat=steel_grey sides=4
+
+def fridge
+  box at=0,0,on size=.65,.65,1.8 mat=#ece8e4/plastic
+  box at=.26,-.33,1.2 size=.03,.03,.4 mat=steel_grey
+  box at=0,-.33,1.12 size=.6,.01,.01 mat=#a8a8a0/plastic
+
+def jars n=5
+  cylinder at=-.3,0,on radius=.05 height=rand(.12,.22) mat=pick(#c8a040,#8a3a2a,#3a6a3a,#e8e0d0,#6a4a2a)/glass sides=6 repeat n every .15,0,0
+
+def bath
+  box at=0,0,on size=.75,1.7,.55 mat=#f0eeea/plastic
+  box at=0,0,.5 size=.6,1.5,.1 mat=#c8d8e0/glass
+  cylinder at=0,.75,.75 radius=.02 height=.3 mat=steel_grey sides=4
+
+def toilet
+  box at=0,.2,on size=.4,.18,.8 mat=#f0eeea/plastic
+  cylinder at=0,-.05,on radius=.2 height=.42 mat=#f0eeea/plastic top_radius=.22 sides=8
+
+def basin
+  cylinder at=0,0,on radius=.08 height=.8 mat=#f0eeea/plastic sides=6
+  bevel_box at=0,-.05,.85 size=.55,.42,.12 bevel=.04 mat=#f0eeea/plastic
+  panel at=0,.2,1.45 width=.5 height=.6 mat=glass_opaque
+
+def towel_rail
+  box at=0,0,1.0 size=.6,.04,.04 mat=steel_grey
+  box at=0,-.02,.82 size=.5,.03,.4 mat=pick(#c84a4a,#4a7aa8,#e8c040,#e8e0d0)/fabric wobble=.008
+
+# A shop shelf unit stocked shelf by shelf: six goods scattered along each, every one its own size and colour.
+def shelf_goods w=1 goods=pick(#c84a3a,#e8c040,#3a6a9a,#e8e0d0,#4a8a4a,#8a4a8a)/plastic
+  shelf at=0,0,0 w=w d=.4 h=1.8 n=4 m=steel_grey
+  box at=0,0,on(.11) size=.12,.2,rand(.12,.24) mat=goods scatter 6 over w-.2,.2 apart .13
+  box at=0,0,on(.67) size=.12,.2,rand(.12,.24) mat=goods scatter 6 over w-.2,.2 apart .13
+  box at=0,0,on(1.23) size=.12,.2,rand(.12,.24) mat=goods scatter 6 over w-.2,.2 apart .13
+
+# ------------------------------------------------------------------ rooms: one def each (inside x 0..w, y 0..d)
+# Each lays its furniture out round the room's doors (door_s, door_n, door_w, door_e) and keeps them clear.
+
+# The stair hall: the stair takes the middle cell, the front cell is the landing on every storey.
+def hallway
+  box at=.17,1.2,1.2 size=.3,1.0,.5 mat=#3a4a3a/paint when=level==0
+  label at=.33,1.2,1.3 width=.9 height=.25 text="FLATS" sub="1  2  SHOP" bg=#3a4a3a fg=#e8e0d0 turn=0,0,90 when=level==0
+  rug at=1.4,.45,0 rw=1.0 rd=.6 when=level==0
+  pot_plant at=.4,.4,0 size=pick(1,1.3) when=level>0
+  ceiling_lamp at=1.4,1.4,h-.2
+  box at=.75,2.85,1.0 size=1.3,.05,.05 mat=steel_dark when=level==2
+  box at=.15,2.85,on size=.04,.04,1.0 mat=steel_dark when=level==2 repeat 4 every .4,0,0
+
+# The shop: stocked shelves along the back (either side of the store-room door) and the side wall, a
+# counter with its till, crates of produce in the window, and its name outside.
+def shop
+  shelf_goods at=1.0,d-.3,0 w=1.5 repeat 2 every 1.7,0,0
+  shelf_goods at=6.1,d-.3,0 w=1.5 repeat 2 every 1.7,0,0
+  shelf_goods at=w-.3,2.2,0 w=1.5 turn=0,0,-90 repeat 2 every 0,1.7,0
+  box at=2.8,2.6,on size=2.2,.6,1.0 mat=#5a3a22/wood
+  box at=2.8,2.6,1.02 size=2.3,.7,.04 mat=#3a2a1a/wood
+  box at=2.0,2.6,on(1.04) size=.4,.35,.25 mat=#2a2a2a/plastic
+  crate at=4.6,1.0,0 fill=pick(#d84a2a,#e8c040,#4a8a2a)/plastic repeat 3 every .7,0,0
+  crate at=4.6,1.0,.3 fill=pick(#d84a2a,#e8c040,#4a8a2a)/plastic repeat 2 every .7,0,0
+  label at=w/2,-.27,2.75 width=4 height=.36 text="pick(ROSE,ACE,CORNER,PARK,MILL) pick(STORES,GROCER,MARKET)" \
+      bg=#2a4a3a fg=#e8d8a0 turn=0,0,180
+  ceiling_lamp at=w/4,d/2,h-.2 repeat 3 every w/4,0,0
+
+# The store room behind it: pallets of crates, sacks, a shelf, clear of the door in from the shop.
+def storeroom
+  pallet at=1.0,1.4,0 repeat 2 every 1.4,0,0
+  crate at=1.7,1.4,.14 fill=none turn=0,0,rand(-20,20) scatter 3 within .4
+  sack at=w-1.4,1.0,0 turn=0,0,rand(0,360) scatter 4 over 1.4,1
+  shelf at=w-1.0,d-.25,0 w=1.6 d=.4 h=1.8 n=4 m=steel_grey
+  ceiling_lamp at=w/2,d/2,h-.2
+
+# The living room (in from the landing on its west wall; doors to the kitchen east, the bedroom north).
+def living_room
+  rug at=2.4,3.2,0 rw=2.6 rd=2.0
+  sofa at=.55,3.3,0 turn=0,0,90
+  coffee_table at=2.0,3.3,0 turn=0,0,90
+  tv_unit at=w-.3,3.0,0 turn=0,0,-90
+  armchair at=3.4,d-.5,0
+  bookcase at=4.6,d-.2,0 n=5
+  floor_lamp at=w-.4,.4,0
+  pot_plant at=.4,d-.4,0 size=pick(1,1.3,1.6)
+  picture at=.03,3.3,1.6 pw=rand(.6,1.0) ph=rand(.45,.7) turn=0,0,90
+  ceiling_lamp at=w/2,d/2,h-.2
+
+# The kitchen (in from the living room on its west wall; the bathroom door north): units down the east
+# wall, the fridge in the front corner, a table for two by the window.
+def kitchen
+  kitchen_kit at=w-.33,4.2,0 turn=0,0,-90 len=2.4
+  box at=w-.12,3.0,1.45 size=.22,1.4,.03 mat=#5a3a22/wood
+  jars at=w-.12,3.0,1.5 n=floor(rand(3,7)) turn=0,0,-90
+  fridge at=w-.4,.45,0 turn=0,0,-90
+  table at=1.0,2.0,0 w=.8 d=1.0 top=pick(#e8e4dc,#8a6a42)/wood
+  chair at=1.0,2.7,0 m=pick(#c84a3a,#3a6a9a,#e8c040)/paint
+  chair at=1.0,1.3,0 m=pick(#c84a3a,#3a6a9a,#e8c040)/paint turn=0,0,180
+  mug at=1.0,2.0,.75 scatter 2 within .2
+  ceiling_lamp at=w/2,d/2,h-.2
+
+# The bedroom (door on its south wall, near the west end): the bed against the back wall, away from the door.
+def bedroom
+  bed at=3.6,d-1.1,0 bw=pick(1.4,1.6)
+  group at=3.6,0,0 {
+    bedside at=-1.15,d-.3,0 mirror x
+  }
+  wardrobe at=.4,d-.6,0 turn=0,0,-90
+  rug at=3.6,.9,0 rw=1.6 rd=1.0
+  picture at=3.6,d-.03,1.9 pw=rand(.7,1.1) ph=.4
+  pot_plant at=w-.4,.4,0 size=pick(1,1.3)
+  ceiling_lamp at=w/2,d/2,h-.2
+
+# The bathroom (door on its south wall, in the middle): the bath across the back, the toilet and basin
+# on the side walls.
+def bathroom
+  bath at=1.4,d-.45,0 turn=0,0,90
+  toilet at=w-.35,1.4,0 turn=0,0,-90
+  basin at=.35,1.6,0 turn=0,0,90
+  towel_rail at=.05,.6,0 turn=0,0,90
+  box at=1.4,1.55,.005 size=.8,.5,.01 mat=pick(#4a7aa8,#e8e0d0,#c84a4a)/fabric
+  ceiling_lamp at=w/2,d/2,h-.2
+
+# The cottage's two rooms: a snug (front door south, kitchen door east) and a small kitchen (door west).
+def snug
+  rug at=w/2,d/2,0 rw=2.4 rd=1.6
+  sofa at=w/2,d-.5,0 turn=0,0,180
+  coffee_table at=w/2,d/2,0
+  armchair at=.55,1.65,0 turn=0,0,-90
+  floor_lamp at=.4,d-.4,0
+  bookcase at=w-1.4,.25,0 turn=0,0,180 n=4
+  ceiling_lamp at=w/2,d/2,h-.2
+
+def cottage_kitchen
+  kitchen_kit at=w-.33,d-.35,0 turn=0,0,-90 len=1.8
+  fridge at=.45,d-.4,0 turn=0,0,180
+  table at=1.6,1.0,0 w=.8 d=.8 top=pick(#e8e4dc,#8a6a42)/wood
+  ceiling_lamp at=w/2,d/2,h-.2
+
+# ------------------------------------------------------------------ the buildings
+
+# A two-room cottage on the same kit: the simplest building, in five lines.
+building cottage "Cottage" kit=flat
+  room 0,0 2,1 fill=snug
+  room 2,0 1,1 floor=floor_tiles fill=cottage_kitchen
+  open 0,0 s door
+  open 1,0 e inner_door
+
+# A three-storey block: a stair hall up one side (the stair in its middle cell, a landing in front of it on
+# every storey), a shop and its store room on the ground floor, and on each floor above a flat whose front
+# door opens off the landing into the living room, with the kitchen, bedroom and bathroom off that.
+building apartment_{v} "Apartment Block" kit=flat cutaway={v} for v=closed,open
+  # The stair hall, all three storeys; the shop and its store room on the ground floor.
+  room 0,0 1,3 storeys=3 as=hall floor=floor_concrete fill=hallway
+  room 1,0 3,2 as=shop floor=floor_tiles fill=shop
+  room 1,2 3,1 as=store floor=floor_concrete fill=storeroom
+
+  # A flat on each of the two floors above.
+  room 1,0 2,2 storey=1 storeys=2 as=living fill=living_room
+  room 3,0 1,2 storey=1 storeys=2 as=kitchen floor=floor_tiles fill=kitchen
+  room 1,2 2,1 storey=1 storeys=2 as=bedroom floor=floor_carpet fill=bedroom
+  room 3,2 1,1 storey=1 storeys=2 as=bathroom floor=floor_tiles fill=bathroom
+  walls window storey=1,2
+
+  # The ground floor: the front door, the shop window, the shop off the hall and the store room behind it.
+  open 0,0 s door
+  open 1..3,0 s shopfront
+  open 0,0 e inner_door
+  open 2,1 n inner_door
+
+  # Each flat: in from the landing, and the kitchen, bedroom and bathroom off the living room.
+  open 0,0 e inner_door storey=1
+  open 0,0 e inner_door storey=2
+  open 2,1 e inner_door storey=1
+  open 2,1 e inner_door storey=2
+  open 1,1 n inner_door storey=1
+  open 1,1 n inner_door storey=2
+  open 3,1 n inner_door storey=1
+  open 3,1 n inner_door storey=2
+
+  # The stairs up, and their handrails joined round the landings.
+  stair 0,1 n
+  stair 0,1 n storey=1
+  join rail reach=.5

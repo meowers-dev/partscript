@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PartScript playground</title>
+<style>
+	* { box-sizing: border-box; }
+	body { margin: 0; height: 100vh; display: grid; grid-template-rows: auto 1fr; background: #1b1d21; color: #d8d8d0;
+		font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
+	header { display: flex; gap: 14px; align-items: center; padding: 6px 10px; background: #26292e; border-bottom: 1px solid #333; }
+	header h1 { font-size: 13px; margin: 0; letter-spacing: .05em; }
+	header a { color: #9ab8f0; }
+	select, button { font: inherit; background: #15171a; color: inherit; border: 1px solid #444; padding: 2px 6px; }
+	label { color: #aaa; }
+	#status { color: #8a8f98; margin-left: auto; }
+	#status.busy { color: #e8c040; }
+	main { display: grid; grid-template-columns: minmax(420px, 46%) 1fr; min-height: 0; }
+	#left { display: grid; grid-template-rows: 1fr auto; min-height: 0; border-right: 1px solid #333; }
+	#editor { position: relative; display: grid; grid-template-columns: 4.5ch 1fr; min-height: 0; background: #15171a; }
+	#gutter { overflow: hidden; color: #555; text-align: right; padding: 8px 6px 8px 0; user-select: none; white-space: pre; }
+	#gutter .bad { color: #ff7a6a; background: #4a2020; }
+	#gutter .warn { color: #e8c040; }
+	textarea { resize: none; border: 0; outline: 0; background: transparent; color: #e0e0d8; font: inherit; padding: 8px; white-space: pre;
+		overflow: auto; tab-size: 2; caret-color: #ffe88a; }
+	#messages { max-height: 30vh; overflow: auto; border-top: 1px solid #333; padding: 4px 0; }
+	#messages div { padding: 1px 10px; cursor: pointer; white-space: pre-wrap; }
+	#messages .error { color: #ff9a8a; }
+	#messages .warning { color: #e8c040; }
+	#messages .ok { color: #8ac89a; cursor: default; }
+	#view { position: relative; min-height: 0; }
+	#view canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+	#hud { position: absolute; left: 10px; top: 8px; color: #aaa; pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+	<h1>PARTSCRIPT PLAYGROUND</h1>
+	<select id="file"></select>
+	<select id="prop"></select>
+	<label><input type="checkbox" id="psx" checked> PSX look</label>
+	<button id="reset" title="Put the example back as it was">reset</button>
+	<a href="viewer.html">all models</a>
+	<a href="docs/index.html">docs</a>
+	<a href="index.html">home</a>
+	<span id="status" class="busy">loading Python (Pyodide)...</span>
+</header>
+<main>
+	<div id="left">
+		<div id="editor"><div id="gutter"></div><textarea id="code" spellcheck="false" autocomplete="off"></textarea></div>
+		<div id="messages"></div>
+	</div>
+	<div id="view"><div id="hud">drag: orbit · wheel: zoom · right-drag: pan · ctrl+enter: build now</div></div>
+</main>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { psx, fog, snapGrid } from "./psx.js";
+
+const $ = id => document.getElementById(id);
+const SCRATCH = `# Type here: the model rebuilds as you go (ctrl+enter builds now). partscript ref has the whole language.
+prop desk_lamp "Desk Lamp"
+  top = box size=1.6,1,.04 mat=#6a5a48/wood
+  base = cylinder on=top radius=.12 height=.03 mat=steel_dark sides=8
+  elbow = sphere at=-.1,.05,.5 radius=.025 mat=steel_dark sides=6 rings=3
+  cylinder from=base.top to=elbow radius=.012 mat=steel_dark sides=5
+  cone from=.16,-.02,.38 to=elbow radius=.09 mat=#c84a3a/paint sides=8
+  sphere at=.15,-.02,.39 radius=.03 mat=lamp_warm sides=6 rings=3
+  row x on=top at=-.45,.3 align=back {
+    box size=rand(.025,.06),rand(.15,.21),rand(.2,.27) mat=pick(#8a2a2a,#2a4a6a,#3a6a3a,#c8a040)/paint repeat 8
+  }
+`;
+
+// ------------------------------------------------------------ the view
+const view = $("view");
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x30343a);
+scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x4a4036, 1.6));
+const sun = new THREE.DirectionalLight(0xfff2dd, 1.8);
+sun.position.set(4, 8, 5);
+scene.add(sun);
+const grid = new THREE.GridHelper(20, 20, 0x555a60, 0x3c4046);
+scene.add(grid);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+camera.position.set(2, 1.6, 3);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+const loader = new GLTFLoader();
+let model = null, size = 1, framed = "";
+
+function resize() {
+	const w = view.clientWidth, h = view.clientHeight;
+	renderer.setPixelRatio(0.4);
+	renderer.setSize(w, h, true);
+	snapGrid(Math.round(w / 4), Math.round(h / 4));
+	camera.aspect = w / h;
+	camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+resize();
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+
+function look() {
+	const on = $("psx").checked;
+	if (model) psx(model, on);
+	grid.visible = !on;
+	fog(scene, on ? size * 1.1 : null, size * 3.2);
+}
+$("psx").addEventListener("change", look);
+
+function show(bytes, result) {
+	loader.parse(bytes.buffer, "", gltf => {
+		if (model) scene.remove(model);
+		model = gltf.scene;
+		scene.add(model);
+		const box = new THREE.Box3().setFromObject(model);
+		size = box.getSize(new THREE.Vector3()).length() || 1;
+		const key = `${$("file").value}/${result.prop}`;
+		if (key !== framed) {
+			// a new prop: frame it; while editing the same one, the camera stays where it is
+			framed = key;
+			const centre = box.getCenter(new THREE.Vector3());
+			controls.target.copy(centre);
+			camera.position.copy(centre).add(new THREE.Vector3(0.6, 0.45, 1).multiplyScalar(size * 0.85));
+		}
+		camera.near = size / 100; camera.far = size * 50; camera.updateProjectionMatrix();
+		look();
+	});
+}
+
+// ------------------------------------------------------------ the editor
+const code = $("code"), gutter = $("gutter");
+let bad = new Set(), warned = new Set();
+function numbers() {
+	const count = code.value.split("\n").length;
+	gutter.innerHTML = Array.from({ length: count }, (_, k) => {
+		const n = k + 1;
+		return `<span class="${bad.has(n) ? "bad" : warned.has(n) ? "warn" : ""}">${n}</span>`;
+	}).join("\n");
+	gutter.scrollTop = code.scrollTop;
+}
+code.addEventListener("scroll", () => { gutter.scrollTop = code.scrollTop; });
+code.addEventListener("keydown", event => {
+	if (event.key === "Tab") {
+		event.preventDefault();
+		const at = code.selectionStart;
+		code.setRangeText("  ", at, code.selectionEnd, "end");
+		changed();
+	}
+	if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); build(); }
+});
+function goTo(line) {
+	const lines = code.value.split("\n");
+	const start = lines.slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0);
+	code.focus();
+	code.setSelectionRange(start, start + (lines[line - 1] || "").length);
+	code.scrollTop = Math.max(0, (line - 6) * parseFloat(getComputedStyle(code).lineHeight));
+}
+
+// ------------------------------------------------------------ files: the examples, and a scratch file of your own
+const files = {};
+const names = await (await fetch("examples/index.json")).json();
+await Promise.all(names.map(async name => { files[name] = await (await fetch(`examples/${name}`)).text(); }));
+const library = await (await fetch("examples/library.json")).json();  // what the examples import from ../library/
+const picker = $("file");
+for (const name of ["scratch.parts", ...names]) picker.add(new Option(name === "scratch.parts" ? "your own (scratch)" : name, name));
+const saved = name => localStorage.getItem(`partscript:${name}`);
+function open(name) {
+	code.value = saved(name) ?? (name === "scratch.parts" ? SCRATCH : files[name]);
+	bad = new Set(); warned = new Set();
+	numbers();
+	build();
+}
+picker.addEventListener("change", () => { location.hash = picker.value; open(picker.value); });
+$("reset").addEventListener("click", () => { localStorage.removeItem(`partscript:${picker.value}`); open(picker.value); });
+$("prop").addEventListener("change", build);
+
+// ------------------------------------------------------------ building, in the worker
+const worker = new Worker("play-worker.js");
+worker.onerror = event => { $("status").textContent = "the builder failed: " + event.message; };
+let ready = false, waiting = false, again = false, timer = null, ticket = 0;
+function changed() {
+	numbers();
+	localStorage.setItem(`partscript:${picker.value}`, code.value);
+	clearTimeout(timer);
+	timer = setTimeout(build, 500);
+}
+code.addEventListener("input", changed);
+function build() {
+	if (!ready) return;
+	if (waiting) { again = true; return; }
+	waiting = true;
+	$("status").textContent = "building...";
+	$("status").className = "busy";
+	const name = picker.value;
+	const sources = names.filter(n => n !== name).map(n => [n, files[n]]);
+	sources.push([name, code.value]);
+	worker.postMessage({ sources, library, prop: $("prop").value, id: ++ticket });
+}
+worker.onmessage = ({ data }) => {
+	if (data.ready) { ready = true; build(); return; }
+	if (data.failed) { $("status").textContent = "Python could not start: " + data.failed; return; }
+	waiting = false;
+	const result = data.result;
+	const props = $("prop");
+	const keep = result.prop || props.value;
+	props.innerHTML = "";
+	for (const id of result.props) props.add(new Option(id, id));
+	props.value = keep;
+	const list = $("messages");
+	list.innerHTML = "";
+	const name = picker.value;
+	bad = new Set(); warned = new Set();
+	const line = text => { const m = text.match(new RegExp(`${name.replace(".", "\\.")}:(\\d+)`)); return m ? +m[1] : 0; };
+	for (const [kind, texts] of [["error", result.errors], ["warning", result.warnings || []]]) {
+		for (const text of texts) {
+			const el = document.createElement("div");
+			el.className = kind;
+			el.textContent = text;
+			const at = line(text);
+			if (at) { (kind === "error" ? bad : warned).add(at); el.onclick = () => goTo(at); }
+			list.appendChild(el);
+		}
+	}
+	numbers();
+	if (data.glb) {
+		show(data.glb, result);
+		$("status").textContent = `${result.prop} · ${result.triangles} triangles · built in ${result.ms} ms`;
+		$("status").className = "";
+		if (!result.errors.length && !(result.warnings || []).length) list.innerHTML = '<div class="ok">no mistakes</div>';
+	} else {
+		$("status").textContent = "not built: see below";
+		$("status").className = "busy";
+	}
+	if (again) { again = false; build(); }
+};
+
+// play.html#code=... (base64url): code from a link (the docs' "try it"), shown as scratch until you change it
+const shared = location.hash.startsWith("#code=")
+	? new TextDecoder().decode(Uint8Array.from(atob(location.hash.slice(6).replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)))
+	: null;
+picker.value = !shared && names.includes(location.hash.slice(1)) ? location.hash.slice(1) : "scratch.parts";
+if (shared) { code.value = shared; numbers(); build(); }
+else open(picker.value);  // the code shows at once; it builds when Python is ready
+</script>
+</body>
+</html>

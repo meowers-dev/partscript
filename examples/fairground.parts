@@ -1,0 +1,82 @@
+# A fairground.
+#
+#   at=4.6*cos(i*30),...     copies placed by a sum of their number: the gondolas round the wheel
+#   group turn=90,0,0 { }    lines drawn in a turned space: the wheel stands up, its gondolas hang level
+#   hang=S                   a row of copies sagging S at its middle: strings of bulbs
+#
+# The stalls are the market's (market.parts).
+
+set red=#c83a3a/paint cream=#ece0c0/paint gold=#d8b048/metal steel=steel_dark bulb=#ffe2a0/glow
+
+# A gondola hanging from its pin (in the wheel's turned space, -y is down).
+def gondola col=pick(#c83a3a,#3a6ac8,#e8c040,#3aa86a)/paint
+  cylinder from=0,0,0 to=0,-.35,0 radius=.025 mat=steel sides=4
+  box at=0,-.62,0 size=.9,.5,.7 mat=col
+  box at=0,-.36,0 size=.98,.05,.78 mat=cream
+  box at=0,-.88,0 size=.8,.05,.6 mat=steel
+
+# A carousel horse, its pole through it, in one of four coats.
+def horse coat=pick(#ece0c0,#3a2a1e,#c8a070,#8a8a8a)/paint
+  cylinder from=0,0,-1.1 to=0,0,1.3 radius=.03 mat=gold sides=6
+  body = bevel_box size=.9,.28,.32 bevel=.06 mat=coat at=0,0,0
+  bevel_box from=.35,0,.1 to=.55,0,.45 size=.16,.18 bevel=.04 mat=coat
+  bevel_box at=.66,0,.46 size=.3,.15,.15 bevel=.04 mat=coat turn=0,25,0
+  box from=.32,.08,-.12 to=.42,.08,-.52 size=.06 mat=coat mirror y
+  box from=-.32,.08,-.12 to=-.22,.08,-.52 size=.06 mat=coat mirror y
+  box from=-.45,0,.08 to=-.62,0,-.3 size=.05,.12 mat=#2a1a10/fabric
+  box at=0,0,.2 size=.3,.3,.06 mat=red
+
+# A lamp post.
+def lamp_post
+  cylinder radius=.06 height=3.2 mat=steel sides=6
+  box at=.25,0,3.2 size=.6,.06,.06 mat=steel
+  sphere at=.5,0,3.05 radius=.12 mat=lamp_warm sides=6 rings=3
+
+prop fairground "Fairground" fairground hero=1 budget=40000
+  # Rough grass and a path down the middle.
+  terrain at=0,0,-.2 size=34,22 cells=34,22 mat=#3e5226/fabric height=.2+rough(x*.1,y*.1)*.25
+  box at=0,0,.03 size=30,3,.06 mat=#6a5a42/concrete turn=0,0,0
+
+  # The wheel: two A-frames, a hub, and the wheel on it, its gondolas round the rim.
+  group at=-7,0,0 {
+    box from=-2.6,1.1,0 to=0,1.1,6 size=.2 mat=steel mirror x
+    box from=-2.6,-1.1,0 to=0,-1.1,6 size=.2 mat=steel mirror x
+    cylinder from=0,-1.2,6 to=0,1.2,6 radius=.18 mat=steel sides=8
+    group at=0,0,6 turn=90,0,0 {
+      torus radius=4.6 thick=.09 mat=red sides=24 rings=4 at=0,0,-.5 mirror z
+      box at=2.3,0,-.5 size=4.6,.08,.08 mat=cream ring 12 mirror z
+      sphere at=4.6,0,-.6 radius=.07 mat=bulb sides=4 rings=2 ring 12 mirror z
+      gondola at=4.6*cos(i*30),4.6*sin(i*30),0 repeat 12 every 0,0,0
+    }
+  }
+
+  # The carousel: a platform and a striped canopy, sixteen bulbs on the rim, eight horses at heights out of step.
+  group at=6,1,0 {
+    cylinder radius=3.2 height=.3 mat=#5a3a22/wood sides=16
+    cylinder at=0,0,on(.3) radius=.35 height=3.2 mat=gold sides=8
+    cone at=0,0,on(3.4) radius=3.6 height=1.4 mat=red|cream sides=16
+    box at=3.3,0,3.3 size=.08,.5,.3 mat=gold ring 16
+    sphere at=3.45,0,3.2 radius=.07 mat=bulb sides=4 rings=2 ring 16
+    horse at=2.3*cos(i*45),2.3*sin(i*45),1.4+.22*sin(i*100) turn=0,0,i*45+90 repeat 8 every 0,0,0
+  }
+
+  # The gate: two posts, a sign hung on chains, bulbs along the top bar.
+  box at=-2.5,-9.5,on size=.3,.3,4 mat=red mirror x
+  box at=0,-9.5,4 size=5.4,.3,.3 mat=red
+  sphere at=-2.4,-9.68,4 radius=.06 mat=bulb sides=4 rings=2 repeat 9 every .6,0,0
+  group at=0,-9.5,3.85 {
+    cylinder from=-1.2,0,0 to=-1.2,0,-.5 radius=.015 mat=steel sides=3 mirror x
+    box at=0,0,-.85 size=3,.12,.7 mat=#2a3a6a/paint
+    label at=0,-.065,-.85 width=2.7 height=.5 text="FUN FAIR" bg=#2a3a6a fg=#f0d060
+  }
+
+  # Stalls along the path with their lamps, and strings of bulbs sagging between poles.
+  market_stall at=-5,-5,0 turn=0,0,10
+  market_stall at=12,-5,0 turn=0,0,-15
+  sphere at=-5,-5.6,2.2 radius=.1 mat=lamp_warm sides=6 rings=3
+  sphere at=12,-5.6,2.2 radius=.1 mat=lamp_warm sides=6 rings=3
+  box at=-13+i*6.5,-2,on size=.12,.12,3.6 mat=steel repeat 5 every 0,0,0
+  sphere at=-12.6+i*.65,-2,3.4 radius=.05 mat=pick(#ff6a6a,#6aff8a,#6aa8ff,#ffe06a)/glow sides=4 rings=2 hang=.6 \
+      repeat 40 every 0,0,0
+  lamp_post at=-11,-6.5,0 repeat 4 every 7.5,0,0
+  lamp_post at=-14,5,0 turn=0,0,180 repeat 3 every 9,0,0

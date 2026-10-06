@@ -1,0 +1,16 @@
+# Tableware, made to be imported plainly (import "../library/tableware.parts"): its parts keep their own
+# names, tankard, candlestick and bread_board, wherever it is imported.
+
+def tankard
+  cylinder radius=.045 height=.12 mat=pick(#8a8a84/metal,#6a4a2a/wood,#c8b8a0/plaster) top_radius=.04 sides=8
+  torus at=.05,0,.06 radius=.03 thick=.008 mat=steel_grey sides=6 rings=3 axis=y
+
+def candlestick
+  cylinder radius=.05 height=.02 mat=brass sides=8
+  cylinder radius=.012 height=.14 mat=brass sides=6
+  wick = cylinder at=0,0,on(.14) radius=.022 height=rand(.08,.16) mat=#ece4d0/plastic sides=6
+  cone on=wick radius=.012 height=.035 mat=lamp_warm sides=4
+
+def bread_board
+  cylinder radius=.16 height=.025 mat=#8a6a42/wood sides=10
+  bevel_box at=0,0,on(.025) size=.2,.1,.08 bevel=.02 mat=#c8904a/plastic

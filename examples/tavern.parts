@@ -1,0 +1,47 @@
+# A tavern room built from two libraries in library/. The furniture comes in with a name, so its parts
+# are furniture.table, furniture.chair and so on, apart from anything named here; the tableware comes in
+# plainly, so tankard and candlestick are names of this file's own. Parts are called like shapes:
+# furniture.table at=... is use furniture.table at=...
+#
+# This file has a settle of its own, and an oak of its own, and neither touches the library's: the
+# library's settle and its oak (set in its file) are still what furniture.settle draws with.
+
+import "../library/furniture.parts" as furniture
+import "../library/tableware.parts"
+
+set oak=#b08850/wood
+
+# This file's own settle: a plain bench with no back, in this file's paler oak.
+def settle w=1.4
+  box at=0,0,on(.42) size=w,.35,.05 mat=oak
+  box at=w/2-.08,0,on size=.06,.3,.42 mat=oak mirror x
+
+# A table laid for four: the table, a chair on each side, tankards and a candle on top.
+def laid_table
+  top = furniture.table w=1.2 d=.8
+  furniture.chair at=0,-.6,0
+  furniture.chair at=0,.6,0 turn=0,0,180
+  furniture.chair at=-.8,0,0 turn=0,0,-90
+  furniture.chair at=.8,0,0 turn=0,0,90
+  tankard on=top at=-.3+i*.2,rand(-.25,.25) turn=0,0,rand(0,360) repeat 3 every 0,0,0
+  candlestick on=top at=.35,.1
+  bread_board on=top at=0,.15
+
+prop tavern_room "Tavern Room" tavern hero=1 budget=12000
+  floor = box at=0,0,-.05 size=9,7,.1 mat=#6a5a48/wood
+  box at=0,3.4,on size=9,.2,3 mat=#d8ccb0/plaster
+  box at=-4.4,0,on size=.2,7,3 mat=#d8ccb0/plaster
+  laid_table at=-1.8,.4,0 turn=0,0,rand(-6,6)
+  laid_table at=1.2,-1.2,0 turn=0,0,rand(-6,6)
+  furniture.settle at=-1.8,2.9,0 w=2.2
+  settle at=-3.9,-1,0 turn=0,0,-90 w=1.6
+  bar = box at=3,1.8,on size=2.6,.7,1.05 mat=#5a3a22/wood
+  row x on=bar at=0,-.15 gap=.08 {
+    tankard repeat 6
+  }
+  candlestick on=bar at=-1.1,.1
+  row x at=3,3,0 gap=.1 {
+    furniture.keg repeat 3
+  }
+  barrel at=4,-2.5,0 m=#6a4a2a/wood
+  barrel at=3.4,-2.8,0 m=#6a4a2a/wood

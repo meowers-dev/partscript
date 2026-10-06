@@ -1,0 +1,12 @@
+__pycache__/
+*.egg-info/
+.venv/
+dist/
+build/
+out/
+.pytest_cache/
+site/models/
+site/py/
+site/examples/
+site/docs/
+site/index.html

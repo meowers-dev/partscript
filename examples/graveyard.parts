@@ -1,0 +1,113 @@
+# A graveyard where nothing repeats. Every headstone draws its own shape, lean, weathering, name and
+# dates; every grave its own mound and how many bones the ground has given up; every bone its own
+# length, thickness, angle and lumps.
+#
+#   wobble=A                 each corner moved up to A, differently every copy
+#   text="{names}"           a label's words can draw too: {expr} is worked out per copy
+#   when=kind==2             a part with several shapes in it, one kept per kind
+#
+# The dead tree and the grass are the garden's parts (garden.parts).
+
+set bonec=#ddd4b8/stone ink=#2a2a26 socket=#1a1612/rubber
+set names="pick(ELIAS,MARY,JOHN,ADA,SILAS,MERCY,THOMAS,HANNAH,EZRA,RUTH,ABEL,NELL)"
+set surnames="pick(THORNE,ASHBY,CROWE,HOLLOW,MARSH,GRAVES,DUNN,KEEL)"
+
+# ------------------------------------------------------------------ bones
+
+# A bone: a shaft with two knuckles at each end (mirror xy turns one knuckle into four).
+def bone len=.4 rad=.022
+  cylinder at=0,0,0 radius=rad height=len mat=bonec axis=x sides=4
+  sphere at=len/2,rad*.9,0 radius=rad*1.7 mat=bonec sides=4 rings=2 mirror xy
+
+# A skull: a cranium, a jaw, two sockets and a nose.
+def skull rad=.1
+  sphere at=0,0,0 radius=rad mat=bonec sides=6 rings=4
+  box at=0,-rad*.5,-rad*.6 size=rad*1.1,rad*.7,rad*.5 mat=bonec
+  sphere at=rad*.38,-rad*.8,rad*.05 radius=rad*.26 mat=socket sides=4 rings=2 mirror x
+  box at=0,-rad*.94,-rad*.25 size=rad*.16,.02,rad*.2 mat=socket
+
+# ------------------------------------------------------------------ headstones and graves
+
+# A headstone in one of five shapes (kind): an arched tablet, a cross, an obelisk, a gabled slab, or a
+# broken tablet with its top lying in the grass. Tablets carry a name and dates drawn for this stone.
+def headstone kind=0 w=.6 h=.9 t=.12 stone=#8a8a84/stone
+  # 0: an arched tablet
+  extrude at=0,0,0 width=t mat=stone -w/2:0 w/2:0 w/2:h w*.36:h+w*.16 0:h+w*.22 -w*.36:h+w*.16 -w/2:h axis=y \
+      when=kind==0 wobble=.008 fade=.55
+
+  # 1: a cross on a step
+  box at=0,0,on size=w*.6,t*1.6,.12 mat=stone when=kind==1 wobble=.01 fade=.6
+  box at=0,0,on(.12) size=.1,t*.8,h*1.2 mat=stone when=kind==1 wobble=.006
+  box at=0,0,h*.95 size=w*.75,t*.8,.1 mat=stone when=kind==1 wobble=.006
+
+  # 2: an obelisk on a plinth
+  bevel_box at=0,0,on size=w*.75,w*.75,.16 bevel=.02 mat=stone when=kind==2 wobble=.008 fade=.6
+  box at=0,0,on(.16) size=w*.42,w*.42,h*1.25 mat=stone taper=.6,.6 when=kind==2 wobble=.006 fade=.7
+  cone at=0,0,on(.16+h*1.25) radius=w*.18 height=.16 mat=stone sides=4 turn=0,0,45 when=kind==2
+
+  # 3: a gabled slab
+  extrude at=0,0,0 width=t mat=stone -w/2:0 w/2:0 w/2:h 0:h+w*.32 -w/2:h axis=y when=kind==3 wobble=.008 fade=.55
+
+  # 4: a broken tablet, its top lying in front
+  extrude at=0,0,0 width=t mat=stone -w/2:0 w/2:0 w/2:h*.55 w*.18:h*.72 -w*.05:h*.52 -w*.2:h*.66 -w/2:h*.6 axis=y \
+      when=kind==4 wobble=.01 fade=.55
+  box at=rand(-.2,.2),-.55,t/2 size=w*.9,h*.38,t mat=stone turn=0,0,rand(-35,35) when=kind==4 wobble=.01
+
+  # What is carved on them.
+  label at=0,-t/2-.014,h*.66 width=w*.82 height=.2 text="{names} {surnames}" sub="{floor(rand(1790,1850))} - {floor(rand(1851,1899))}" bg=#7c7c76 fg=ink when="kind==0 or kind==3"
+  label at=0,-t/2-.014,h*.4 width=w*.7 height=.1 text="R.I.P." bg=#7c7c76 fg=ink when=kind==4
+
+# A grave: a leaning headstone, a sunken mound, one to four bones pushing up out of it, sometimes a skull.
+def grave kind=0 stone=#8a8a84/stone
+  group at=0,0,0 turn=rand(-7,7),rand(-5,5),rand(-6,6) {
+    headstone kind=kind w=rand(.5,.7) h=rand(.75,1.05) stone=stone
+  }
+  bevel_box at=0,-.8,on(-.08) size=.8,1.45,.22 bevel=.08 mat=#4a3a28/concrete taper=.85,.9 wobble=.035,.035,.04 fade=.7
+  bone at=0,-.8,.16 len=rand(.3,.55) rad=rand(.017,.03) turn=rand(35,70)*pick(-1,1),rand(-25,25),rand(0,360) \
+      wobble=.006 scatter (floor(rand(1,5))) over .25,1.05 apart .2
+  skull at=rand(-.2,.2),-1.25,.05 rad=rand(.085,.11) turn=rand(-30,30),rand(-20,20),rand(-70,70) when=rand()<.35 wobble=.005
+
+# ------------------------------------------------------------------ the props
+
+# A heap of thirty bones and four skulls: look closely, no two are the same.
+prop ossuary_pile "Ossuary Pile" graveyard hero=1
+  bone at=0,0,.03 len=rand(.22,.5) rad=rand(.014,.03) turn=rand(-25,25),rand(-25,25),rand(0,360) wobble=.008 \
+      scatter 30 within .7 apart .06
+  bone at=0,0,.1 len=rand(.22,.45) rad=rand(.014,.026) turn=rand(-40,40),rand(-40,40),rand(0,360) wobble=.008 scatter 10 within .35
+  skull at=0,0,.12 rad=rand(.085,.11) turn=rand(-25,25),rand(-15,15),rand(-90,90) wobble=.006 scatter 4 within .45 apart .2
+
+# Five graves side by side, one of each kind, so the kinds can be compared.
+prop grave_row "Grave Row" graveyard hero=1
+  grave at=-2.4,0,0 kind=i stone=pick(#8a8a84,#7a7a80,#9a9488)/stone repeat 5 every 1.2,0,0
+
+# The graveyard: twelve graves either side of a path from the gate, a bare tree, dead grass, bones in
+# the grass, and iron railings round it all with a gap for the gate.
+prop graveyard "Graveyard" graveyard budget=20000
+  # The ground and the path.
+  box at=0,0,-.02 size=9.2,7.8,.04 mat=#3a3a2a/plaster
+  box at=0,-.6,.002 size=1.1,6.4,.004 mat=#6a6a64/concrete
+
+  # Two blocks of six graves, each of a drawn kind and stone, nudged out of line.
+  grave at=-3.4,3.0,0 kind=pick(0,0,1,2,3,3,4) stone=pick(#8a8a84,#7a7a80,#9a9488,#6e6e68)/stone jitter=.12,8 grid 2x3 every 1.95,-2.45
+  grave at=1.45,3.0,0 kind=pick(0,0,1,2,3,3,4) stone=pick(#8a8a84,#7a7a80,#9a9488,#6e6e68)/stone jitter=.12,8 grid 2x3 every 1.95,-2.45
+
+  # A bare tree (the garden's branch with no leaves), dead grass, and bones in it.
+  branch at=4.0,-3.1,0 len=1.6 rad=.13 depth=3 leaf=none
+  tuft h=rand(.14,.32) col=pick(#5a5a3a,#6a6a3a,#4a4a2a,#7a7046)/plastic scatter 70 over 8.8,7.4 apart .2
+  bone len=rand(.22,.45) rad=rand(.015,.026) turn=rand(-12,12),rand(-12,12),rand(0,360) wobble=.006 \
+      scatter 12 over 8.4,7 apart .4
+
+  # The front railing: spiked bars with a gap for the gate (when=), and its rails either side.
+  box at=-4.5,-3.8,on size=.05,.05,1.3 mat=steel_dark when="i<7 or i>10" repeat 18 every .53,0,0
+  cone at=-4.5,-3.8,on(1.3) radius=.04 height=.12 mat=steel_dark sides=4 when="i<7 or i>10" repeat 18 every .53,0,0
+  box at=-2.65,-3.8,1.15 size=3.7,.03,.03 mat=steel_dark repeat 2 every 0,0,-.85 mirror x
+
+  # The back railing.
+  box at=-4.5,3.8,on size=.05,.05,1.3 mat=steel_dark repeat 18 every .53,0,0
+  cone at=-4.5,3.8,on(1.3) radius=.04 height=.12 mat=steel_dark sides=4 repeat 18 every .53,0,0
+  box at=0,3.8,1.15 size=9,.03,.03 mat=steel_dark repeat 2 every 0,0,-.85
+
+  # The side railings.
+  box at=-4.5,-3.27,on size=.05,.05,1.3 mat=steel_dark repeat 13 every 0,.53,0 mirror x
+  cone at=-4.5,-3.27,on(1.3) radius=.04 height=.12 mat=steel_dark sides=4 repeat 13 every 0,.53,0 mirror x
+  box at=-4.5,0,1.15 size=.03,7.6,.03 mat=steel_dark repeat 2 every 0,0,-.85 mirror x

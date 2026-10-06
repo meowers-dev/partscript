@@ -1,0 +1,162 @@
+# PartScript standard parts: building blocks every project can use.
+#   use NAME x,y,z [r=rx,ry,rz] [s=sx,sy,sz] [param=value ...]
+# Each sits with its origin at the floor centre and its front toward -Y, like a prop.
+# Materials are parameters: pass theme keys, library keys, #rrggbb/finish colours, or none to leave a piece out.
+
+# Four square legs under the corners of a w x d top, h tall, t thick.
+def legs4 w=1 d=.6 h=.72 t=.05 m=steel_dark
+  box at=w/2-t/2,d/2-t/2,on size=t,t,h mat=m mirror xy
+end
+
+# A table: a w x d top at height h on four legs.
+def table w=1.2 d=.8 h=.75 top=wood leg=steel_dark t=.05
+  box at=0,0,h-.02 size=w,d,.04 mat=top
+  use legs4 w=w-.08 d=d-.08 h=h-.04 t=t m=leg
+end
+
+# A trestle table: a top on two A-frames (markets, canteens, jumble sales).
+def trestle w=1.8 d=.7 h=.8 top=wood leg=steel_dark
+  box at=0,0,h-.02 size=w,d,.04 mat=top
+  box at=w/2-.15,d/2-.16,(h-.04)/2 size=.04,.04,h-.02 mat=leg turn=10,0,0 mirror xy
+  box at=w/2-.15,0,.25 size=.03,d-.2,.03 mat=leg mirror x
+end
+
+# A chair: seat at h, the back behind it (+Y).
+def chair h=.45 w=.44 d=.42 back=.45 m=wood leg=steel_dark
+  box at=0,0,h-.02 size=w,d,.04 mat=m
+  box at=0,d/2-.02,h+back/2 size=w,.04,back mat=m
+  use legs4 w=w-.04 d=d-.04 h=h-.04 t=.035 m=leg
+end
+
+# A bar stool: a round seat on a post with a foot ring.
+def stool h=.7 rad=.18 m=wood leg=steel_dark
+  cylinder at=0,0,h-.03 radius=rad height=.06 mat=m sides=10
+  cylinder at=0,0,on radius=.03 height=h-.06 mat=leg sides=6
+  cylinder at=0,0,.02 radius=rad*.9 height=.04 mat=leg sides=8
+  tube at=0,0,h*.4 radius=rad*.8 inner=rad*.7 height=.03 mat=leg sides=10
+end
+
+# A bench seat on two end legs (street and park benches, pews, stall seats).
+def bench w=1.6 d=.4 h=.45 m=wood leg=steel_dark back=none
+  box at=0,0,h-.03 size=w,d,.06 mat=m
+  box at=w/2-.08,0,on size=.06,d-.04,h-.06 mat=leg mirror x
+  box at=0,d/2-.03,h+.25 size=w,.05,.4 mat=back turn=-8,0,0
+end
+
+# Shelving: two sides and n shelves, the lowest just off the floor.
+def shelf w=1 d=.35 h=1.8 n=4 m=steel_grey
+  box at=w/2-.02,0,on size=.04,d,h mat=m mirror x
+  box at=0,0,.08 size=w-.04,d,.03 mat=m repeat n every 0,0,(h-.12)/(n-1)
+end
+
+# An open crate; fill heaps it with produce or goods (none for empty).
+def crate w=.6 d=.45 h=.3 m=crate_wood fill=none
+  box at=0,0,.015 size=w,d,.03 mat=m
+  box at=0,d/2-.01,on size=w,.02,h mat=m mirror y
+  box at=w/2-.01,0,on size=.02,d-.04,h mat=m mirror x
+  box at=0,0,h*.72 size=w-.06,d-.06,h*.44 mat=fill
+  sphere at=-w/4,-d/6,h*.92 radius=.07 mat=fill sides=6 rings=4 repeat 3 every w/4,0,0
+end
+
+# A drum barrel with two hoops.
+def barrel rad=.3 h=.9 m=steel_blue band=steel_dark
+  cylinder at=0,0,on radius=rad height=h mat=m sides=12
+  cylinder at=0,0,h*.2 radius=rad+.01 height=.04 mat=band sides=12 caps=0
+  cylinder at=0,0,h*.8 radius=rad+.01 height=.04 mat=band sides=12 caps=0
+end
+
+# A stuffed sack, tied at the top.
+def sack w=.45 d=.3 h=.6 m=canvas
+  bevel_box at=0,0,on size=w,d,h*.85 bevel=.08 mat=m
+  cylinder at=0,0,h*.9 radius=w*.18 height=h*.15 mat=m sides=6 top_radius=w*.08
+end
+
+# A wooden pallet: three bearers under seven slats.
+def pallet w=1.2 d=1 m=crate_wood
+  box at=-w/2+.05,0,on size=.1,d,.1 mat=m repeat 3 every (w-.1)/2,0,0
+  box at=0,-d/2+.05,.1125 size=w,.1,.025 mat=m repeat 7 every 0,(d-.1)/6,0
+end
+
+# A striped awning of n strips, tilted down toward the front, with a valance hanging off its front edge.
+def awning w=2.4 d=1.2 n=6 z=2.35 tilt=7 a=#8a1c22/fabric b=#e8e0d0/fabric
+  box at=-w/2+w/n/2,0,z size=w/n,d,.04 mat=a|b turn=tilt,0,0 repeat n every w/n,0,0
+  box at=-w/2+w/n/2,-d/2*cos(tilt)-.01,z-d/2*sin(tilt)-.08 size=w/n,.02,.14 mat=a|b repeat n every w/n,0,0
+end
+
+# A market stall: a trestle under a striped awning on four posts (cut to meet its slope), crates tilted to show their fill.
+def stall w=2.4 d=1.2 h=.85 a=#8a1c22/fabric b=#e8e0d0/fabric fill=#d8a030/plastic top=wood post=wood
+  set ad=d+.4 tl=atan(.25/ad) zc=2.4
+  use trestle w=w d=d h=h top=top
+  box at=w/2+.03,d/2-.03,on size=.06,.06,zc-.02+(d/2+.07)*tan(tl) mat=post mirror x
+  box at=w/2+.03,-d/2+.03,on size=.06,.06,zc-.02+(-d/2+.13)*tan(tl) mat=post mirror x
+  use awning at=0,-.1,0 w=w+.16 d=ad z=zc tilt=tl a=a b=b
+  use crate at=-w/2+.35,-.12,h+.04 turn=10,0,0 fill=fill repeat 3 every (w-.7)/2,0,0
+end
+
+# A post on a base plate.
+def post h=2.4 t=.07 m=steel_dark
+  box at=0,0,on size=t,t,h mat=m
+  box at=0,0,.01 size=t*3,t*3,.02 mat=m
+end
+
+# A pipe railing w long with n posts and a mid rail.
+def rail w=2 h=1 n=3 m=steel_dark
+  cylinder at=-w/2,0,on radius=.03 height=h mat=m sides=6 repeat n every w/(n-1),0,0
+  pipe mat=m radius=.03 -w/2,0,h w/2,0,h
+  pipe mat=m radius=.02 -w/2,0,h/2 w/2,0,h/2
+end
+
+# A ladder h tall, rungs every 0.3 m.
+def ladder h=3 w=.45 m=steel_grey
+  box at=w/2,0,on size=.05,.05,h mat=m mirror x
+  cylinder at=0,0,.3 radius=.015 height=w mat=m axis=x sides=6 repeat (h/.3-1) every 0,0,.3
+end
+
+# A wheel on the X axis (carts, barrows, cars).
+def wheel rad=.32 w=.2 m=rubber hub=steel_grey
+  cylinder at=0,0,0 radius=rad height=w mat=m axis=x sides=12
+  cylinder at=0,0,0 radius=rad*.55 height=w+.01 mat=hub axis=x sides=8
+end
+
+# A glowing bulb under a small shade, hanging from its origin.
+def lamp rad=.1 m=lamp_warm shade=steel_dark
+  sphere at=0,0,-rad radius=rad mat=m sides=8 rings=4
+  cone at=0,0,rad*.3 radius=rad*1.6 height=rad*.8 mat=shade sides=8
+end
+
+# A bottle.
+def bottle h=.3 rad=.04 m=glass_opaque
+  lathe at=0,0,0 mat=m rad:0 rad:h*.6 rad*.4:h*.75 rad*.35:h .001:h sides=8
+end
+
+# A tin can.
+def can rad=.04 h=.12 m=steel_red
+  cylinder at=0,0,on radius=rad height=h mat=m sides=8
+end
+
+# A framed window in the XZ plane, glass facing the front.
+def window w=1 h=1.2 t=.06 m=glass_opaque frame=steel_dark
+  panel at=0,0,h/2 width=w-t height=h-t mat=m double=1
+  box at=0,0,t/2 size=w,t,t mat=frame
+  box at=0,0,h-t/2 size=w,t,t mat=frame
+  box at=w/2-t/2,0,h/2 size=t,t,h mat=frame mirror x
+end
+
+# A door slab with a knob.
+def door w=.9 h=2.05 m=wood knob=brass
+  box at=0,0,on size=w,.05,h mat=m
+  cylinder at=w/2-.1,-.04,h*.5 radius=.025 height=.06 mat=knob axis=y sides=6
+end
+
+# A parasol on a weighted base.
+def parasol rad=1.2 h=2.3 m=#b83a2a/fabric pole=steel_dark
+  cylinder at=0,0,on radius=.025 height=h mat=pole sides=6
+  cone at=0,0,h-.15 radius=rad height=.35 mat=m sides=8
+  cylinder at=0,0,.04 radius=.25 height=.08 mat=pole sides=8
+end
+
+# A string of n lit bulbs hanging along X (festoon lights).
+def festoon w=4 n=8 z=2.6 sag=.25 m=lamp_warm wire=steel_dark
+  pipe mat=wire radius=.008 -w/2,0,z -w/4,0,z-sag*.75 0,0,z-sag w/4,0,z-sag*.75 w/2,0,z sides=4
+  sphere at=-w/2+w/n/2,0,z-sag*(2/n-1/(n*n))-.04 radius=.05 mat=m sides=6 rings=3 hang=sag*(1-1/n)**2 repeat n every w/n,0,0
+end

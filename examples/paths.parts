@@ -1,0 +1,120 @@
+# Paths and fences that join up.
+#
+#   snap start / snap end    where a piece starts and ends
+#   chain A B*2 C            pieces end to end, each one's start on the last one's end: bends turn the
+#                            path and steps lift it
+#   along="x,y x,y ..."      copies down a line of points, turned to follow it: every=D spaces them,
+#                            fit=1 stretches them to fill each straight, joints=1 puts them where the
+#                            pieces meet (posts), corners=1 on the points
+#
+# Turn on "snap points" in the viewer to see where everything joins.
+
+set paving=#6e6a60/concrete kerb=#8a8a84/concrete slab=pick(#a8a294,#9c968a,#b0aa9c,#948e82)/stone
+
+# Two metres of paved path between kerbs: eight slabs, each its own shade and set a little unevenly.
+prop path_straight "Path, Straight" paths
+  box at=0,0,on size=1.2,2,.04 mat=paving
+  box at=-.3,-.75,.04 size=.56,.46,.03 mat=slab wobble=.004 grid 2x4 every .6,.5
+  box at=.65,0,on size=.1,2,.12 mat=kerb mirror x
+  snap start 0,-1,.04 -y kind=path
+  snap end 0,1,.04 +y kind=path
+
+# A bend to the right: six tapered lengths (outlines extruded upward) turned about the bend's centre by a
+# ring of copies in a group, so the slabs and kerbs follow the curve without gaps.
+prop path_bend "Path, Bend" paths
+  set R=1.3 cs=cos(7.5) sn=sin(7.5) ri=R-.6 ro=R+.6
+  group at=R,0,0 {
+    group turn=0,0,-7.5 ring 6 step -15 {
+      extrude at=0,0,.02 width=.04 mat=paving -ri*cs:-ri*sn -ro*cs:-ro*sn -ro*cs:ro*sn -ri*cs:ri*sn axis=z
+      extrude at=0,0,.055 width=.03 mat=slab -(ri+.06)*cs:-(ri+.06)*sn+.02 -(ro-.06)*cs:-(ro-.06)*sn+.02 \
+          -(ro-.06)*cs:(ro-.06)*sn-.02 -(ri+.06)*cs:(ri+.06)*sn-.02 axis=z wobble=.004
+      extrude at=0,0,.06 width=.12 mat=kerb -ro*cs:-ro*sn -(ro+.1)*cs:-(ro+.1)*sn -(ro+.1)*cs:(ro+.1)*sn -ro*cs:ro*sn axis=z
+      extrude at=0,0,.06 width=.12 mat=kerb -(ri-.1)*cs:-(ri-.1)*sn -ri*cs:-ri*sn -ri*cs:ri*sn -(ri-.1)*cs:(ri-.1)*sn axis=z
+    }
+  }
+  snap start 0,0,.04 -y kind=path
+  snap end R,R,.04 +x kind=path
+
+# The same bend mirrored to turn left. Its snaps are its own, so it says where it ends.
+prop path_bend_left "Path, Bend Left" paths
+  path_bend scale=-1,1,1
+  snap start 0,0,.04 -y kind=path
+  snap end -1.3,1.3,.04 -x kind=path
+
+# Three steps up: the end snap is 30 cm higher than the start, so whatever follows climbs with it.
+prop path_steps "Path, Steps" paths
+  box at=0,-1+.333+i*.667,on size=1.2,.667,.04+.15*i mat=paving repeat 3 every 0,0,0
+  box at=0,-.92+i*.667,on(.04+.15*i) size=1.1,.12,.03 mat=slab repeat 3 every 0,0,0
+  group mirror x {
+    box at=.65,-1+.333+i*.667,on size=.1,.667,.16+.15*i mat=kerb repeat 3 every 0,0,0
+  }
+  snap start 0,-1,.04 -y kind=path
+  snap end 0,1,.34 +y kind=path
+
+# A winding garden walk: one line of pieces, joined snap to snap.
+prop garden_walk "Garden Walk" paths hero=1
+  chain path_straight*2 path_bend path_straight path_steps path_straight path_bend_left path_straight*2
+
+# A picket fence panel two metres along X (pickets alternate in height), a post, and a gate.
+def fence_panel col=#e8e4d8/paint
+  box at=0,0,.25 size=2,.03,.06 mat=col repeat 2 every 0,0,.45
+  box at=-.9,-.025,on size=.08,.02,.85+.06*(i%2) mat=col taper=.4,1 fade=.8 repeat 10 every .2,0,0
+
+def fence_post col=#e8e4d8/paint
+  box at=0,0,on size=.1,.1,1.05 mat=col
+  cone at=0,0,on(1.05) radius=.08 height=.08 mat=col sides=4 turn=0,0,45
+
+def fence_gate col=#e8e4d8/paint open=55
+  group turn=0,0,-open {
+    box at=.95,-.02,.25 size=1.9,.03,.06 mat=col repeat 2 every 0,0,.45
+    box at=.1,-.045,on size=.08,.02,.85 mat=col taper=.4,1 fade=.8 repeat 10 every .2,0,0
+    box at=.95,-.03,.48 size=2.1,.03,.05 mat=col turn=0,-24,0
+  }
+
+# A fenced garden: one line names the yard's edge, and the panels, posts and hedge all follow it.
+# The front's middle panel is left out (when=) for a gate, and a path runs in through it.
+prop fenced_garden "Fenced Garden" paths hero=1
+  set yard="0,0 6,0 6,4 0,4"
+
+  # The lawn, the fence and its posts round the yard, the gate, a hedge at the back, the path in to it.
+  box at=3,2,-.02 size=6.4,4.4,.04 mat=#4a6a2a/plaster
+  fence_panel along=yard every=2 fit=1 closed=1 when=i!=1
+  fence_post along=yard every=2 fit=1 closed=1 joints=1
+  fence_gate at=2,0,0
+  bevel_box at=0,0,on size=.9,.7,.8 bevel=.12 mat=pick(#3a6a2a,#2f5f26,#467432)/fabric wobble=.05 along="1,3.4 5,3.4" every=.9 fit=1
+  chain path_straight*2 at=3,-1.6,0
+
+# ------------------------------------------------------------------ links: ends that find each other
+
+# A piece can leave loose ends (link KIND at= toward=) and a join line bridges the ends of that kind that
+# nearly meet: nearest first, each end once, only ends that face each other. Rails set down in short runs
+# with gaps and corners come out as one rail; the ends nothing reaches stay loose (snap markers show them).
+def rail_run run=2
+  pipe mat=steel_dark radius=.025 0,0,.9 run,0,.9 sides=6
+  box at=.1,0,on size=.04,.04,.9 mat=steel_dark repeat (max(1,round(run/.6))) every run/max(1,round(run/.6)),0,0
+  link rail at=0,0,.9 toward=-x
+  link rail at=run,0,.9 toward=+x
+
+prop railing_corners "Railing, Auto Joined" paths
+  box at=1.7,1,-.03 size=4,2.6,.06 mat=concrete
+  rail_run at=0,0,0 run=1.6
+  rail_run at=1.9,0,0 run=1.3
+  rail_run at=3.4,.2,0 run=1.6 turn=0,0,90
+  rail_run at=3.2,2,0 run=1.6 turn=0,0,180
+  join rail reach=.6
+
+# A bollard says it holds a chain on two sides; join with=DEF draws each bridge with a def laid along +X
+# for `length` metres, so the chains between posts sag however far apart the posts stand.
+def bollard
+  cylinder at=0,0,on radius=.08 height=.8 mat=#2a2a2a/paint sides=8
+  sphere at=0,0,.84 radius=.09 mat=#2a2a2a/paint sides=8 rings=4
+  link chain at=-.09,0,.7 toward=-x
+  link chain at=.09,0,.7 toward=+x
+
+def swag
+  set sag=length*.12
+  pipe mat=steel_grey radius=.016 0,0,0 length*.25,0,-sag*.75 length*.5,0,-sag length*.75,0,-sag*.75 length,0,0 smooth=4 sides=4
+
+prop bollard_row "Bollards and Chain" paths
+  bollard at=0,0,0 along="0,0 1.6,.3 3.4,0 5,.8" corners=1
+  join chain reach=2.2 with=swag

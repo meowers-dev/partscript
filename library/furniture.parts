@@ -1,0 +1,37 @@
+# A library of tavern furniture, made to be imported with a name:
+#   import "../library/furniture.parts" as furniture
+# Its parts are then furniture.table, furniture.chair, furniture.settle... and its own lines call each
+# other by their short names (table uses leg, not the leg of whoever imports it). Its colours (the set
+# lines below) are its own too: a file that imports it can have an oak of its own.
+
+set oak=#6a4a2a/wood dark=#4a3220/wood iron=steel_dark
+
+# A turned leg, h tall.
+def leg h=.72
+  lathe mat=dark .035:0 .045:.06 .03:.12 .03:h*.7 .04:h*.8 .03:h-.04 .04:h sides=6
+
+# A plank table: a thick top on four turned legs (a leg, called like a shape).
+def table w=1.4 d=.8 h=.76
+  top = bevel_box at=0,0,on(h-.05) size=w,d,.05 bevel=.01 mat=oak
+  leg at=w/2-.08,d/2-.08,0 h=h-.05 mirror xy
+  box at=0,0,h-.12 size=w-.2,.04,.08 mat=dark
+
+# A chair with a ladder back, facing the front (-Y).
+def chair h=.45
+  bevel_box at=0,0,on(h-.04) size=.44,.42,.04 bevel=.01 mat=oak
+  leg at=.18,.17,0 h=h+.5 mirror x
+  leg at=.18,-.17,0 h=h-.04 mirror x
+  box at=0,.17,h+.12+i*.13 size=.34,.03,.05 mat=dark repeat 3 every 0,0,0
+
+# A settle: a high-backed bench for a fireside or a wall.
+def settle w=1.6
+  box at=0,0,on(.4) size=w,.45,.05 mat=oak
+  box at=0,.21,on size=w,.05,1.4 mat=dark
+  box at=w/2-.03,0,on size=.06,.45,.75 mat=dark mirror x
+
+# A keg on its cradle, the tap toward the front.
+def keg
+  box at=0,0,on size=.5,.6,.12 mat=dark
+  cylinder at=0,0,.42 radius=.3 height=.6 mat=oak axis=y sides=10
+  cylinder at=0,-.2+i*.4,.42 radius=.31 height=.04 mat=iron axis=y sides=10 caps=0 repeat 2 every 0,0,0
+  cylinder from=0,-.3,.3 to=0,-.42,.3 radius=.02 mat=brass sides=5

@@ -1,0 +1,21 @@
+# A market stall, then a row of them: one prop placed three times by another, under a string of lights.
+# A prop is called by its name like any part (market_stall at=...).
+
+prop market_stall "Market Stall" street
+  # The std stall in blue and white, full of oranges.
+  stall a=#2a5a8a/fabric b=#e8e0d0/fabric fill=#d84a2a/plastic
+
+  # Its sign: a board, the printed words, two hooks up to the awning.
+  box at=0,-.83,2.04 size=1.0,.03,.22 mat=wood
+  label at=0,-.85,2.04 width=.94 height=.17 text="FRESH FRUIT" sub="2 FOR 1" bg=#e8e0d0 fg=#2a2a2a
+  pipe mat=steel_dark radius=.01 -.3,-.83,2.15 -.3,-.79,2.29 sides=4 mirror x
+
+  # Sacks beside it.
+  sack at=1.45,-.35,0 m=canvas
+  sack at=1.55,.1,0 w=.4 h=.5 m=#8a7a5a/fabric turn=0,0,25
+
+prop market_row "Market Row" street hero=1
+  market_stall at=-2.9,0,0
+  market_stall at=0,0,0
+  market_stall at=2.9,0,0
+  festoon at=0,.95,0 w=8.6 n=14 z=2.85

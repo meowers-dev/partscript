@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PartScript sheet</title>
+<style>
+	body { margin: 0; background: #30343a; }
+	canvas { display: block; }
+	#labels { position: absolute; inset: 0; pointer-events: none; font: 12px ui-monospace, monospace; color: #fff; }
+</style>
+</head>
+<body>
+<!-- Every prop from the front-left and the back-right, for reviewing them side by side.
+	sheet.html?only=a,b  limits it; ?cols=4 sets the grid; ?top=1 adds a view from above; ?view=x,y,z one view from that way, ?zoom=2 twice as close; ?psx=1 the PSX look. -->
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { psx, fog, snapGrid } from "./psx.js";
+
+const params = new URLSearchParams(location.search);
+const only = params.get("only") ? params.get("only").split(",") : null;
+const cols = +(params.get("cols") || 4);
+const views = params.get("view") ? [params.get("view").split(",").map(Number)] : [[0.7, 0.45, 1.0], [-0.8, 0.5, -0.9]];
+if (params.get("top")) views.push([0.01, 1, 0.01]);
+const zoom = +(params.get("zoom") || 1);
+const look = params.get("psx");  // ?psx=1: unlit, snapped corners, fog
+const cell = +(params.get("cell") || 300);
+const data = await (await fetch("models/index.json")).json();
+const props = data.props.filter(p => !only || only.includes(p.id));
+const loader = new GLTFLoader();
+const models = await Promise.all(props.map(p => loader.loadAsync(`models/${p.id}.glb`).then(g => g.scene)));
+const perRow = cols * views.length;
+const rows = Math.ceil(props.length / cols);
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(1);
+renderer.setSize(cell * perRow, cell * rows);
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const labels = document.createElement("canvas");
+labels.width = cell * perRow; labels.height = cell * rows;
+Object.assign(labels.style, { position: "absolute", left: 0, top: 0 });
+document.body.appendChild(labels);
+const ctx = labels.getContext("2d");
+ctx.font = "13px monospace";
+props.forEach((prop, i) => {
+	const scene = new THREE.Scene();
+	scene.background = new THREE.Color(i % 2 ? 0x30343a : 0x2c3036);
+	scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x4a4036, 1.6));
+	const sun = new THREE.DirectionalLight(0xfff2dd, 1.8);
+	sun.position.set(4, 8, 5);
+	scene.add(sun);
+	const model = models[i];
+	scene.add(model);
+	if (look) { psx(model, true); snapGrid(cell / 3, cell / 3); }
+	const box = new THREE.Box3().setFromObject(model);
+	const size = box.getSize(new THREE.Vector3());
+	const radius = size.length() / 2 || 1;
+	const centre = box.getCenter(new THREE.Vector3());
+	const grid = new THREE.GridHelper(Math.ceil(radius * 4), Math.ceil(radius * 4), 0x666a70, 0x45494f);
+	grid.position.y = 0;
+	if (!look) scene.add(grid);
+	views.forEach((v, k) => {
+		const camera = new THREE.PerspectiveCamera(35, 1, radius / 50, radius * 40);
+		if (look && params.get("fog") !== "0") fog(scene, radius * 3.2 / zoom * .75, radius * 3.2 / zoom * 2.2);
+		const dir = new THREE.Vector3(...v).normalize();
+		camera.position.copy(centre).addScaledVector(dir, radius * 3.2 / zoom);
+		camera.lookAt(centre);
+		const col = (i % cols) * views.length + k, row = Math.floor(i / cols);
+		const x = col * cell, y = (rows - 1 - row) * cell;
+		renderer.setViewport(x, y, cell, cell);
+		renderer.setScissor(x, y, cell, cell);
+		renderer.render(scene, camera);
+		if (k === 0) {
+			ctx.fillStyle = "#fff";
+			ctx.fillText(`${prop.id}  ${prop.triangles}t  ${size.x.toFixed(2)}x${size.z.toFixed(2)}x${size.y.toFixed(2)}m`, col * cell + 6, row * cell + 16);
+		}
+	});
+});
+document.title = "done";
+</script>
+</body>
+</html>

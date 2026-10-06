@@ -1,0 +1,98 @@
+# Ruins: generators that make whole places.
+#
+#   terrain height=EXPR      ground raised by a sum; rough(x,y) and noise(x,y) are smooth noise over space
+#   here.x here.y            where a copy stands, for when= and sums
+#   box break=F              a box knocked apart in chunks; core= shows inside, rubble= of them fall round it
+#   drop=1 | drop=lean       each copy falls onto whatever is under it (and tilts with it)
+#   scatter N on NAME        copies grown over a named shape's faces: facing up for moss, side for ivy
+#   pipe taper=K             a pipe narrowing along its length
+#
+# Everything is seeded: give a prop another seed= and it deals itself again.
+
+set stone=#b4ac9a/stone dark=#6e675c/stone earth=#5e5442/stone wood=#3e3226/wood moss=pick(#3a6a2a,#4a7a32,#2f5f26,#5a7a3a)/fabric
+
+# A dead limb: a tapering, wandering pipe that forks into two or three smaller limbs, down to depth 0.
+def limb len=2 rad=.12 depth=3
+  set mx=rand(-.12,.12)*len my=rand(-.12,.12)*len ex=rand(-.22,.22)*len ey=rand(-.22,.22)*len
+  pipe mat=wood radius=rad 0,0,0 mx,my,len*.5 ex,ey,len smooth=2 taper=.6 sides=4
+  limb at=ex,ey,len*.96 len=len*rand(.55,.75) rad=rad*.58 depth=depth-1 turn=rand(28,52),0,i*137+rand(-30,30) \
+      when=depth>0 repeat (2+floor(rand(0,1.6))) every 0,0,0
+
+def dead_tree
+  limb len=2.6 rad=.2 depth=3
+  limb len=.9 rad=.12 depth=0 turn=105,0,i*120+rand(-20,20) repeat 3 every 0,0,0
+
+# A pew, and the stone of a flag floor.
+def pew
+  box at=0,0,on(.42) size=1.8,.4,.05 mat=#5a3e26/wood
+  box at=0,.18,on(.47) size=1.8,.05,.45 mat=#5a3e26/wood
+  box at=.85,0,on size=.06,.45,.85 mat=#4a321e/wood mirror x
+
+def boulder size=.4
+  sphere radius=size mat=dark sides=6 rings=4 wobble=size*.22
+
+# A chapel on a hill, roofless and half fallen: the side walls and the apse broken (each its own way), the
+# gable front still standing round its door, pews in two rows (some gone, some knocked askew), moss on
+# every top the walls have left and ivy up their sides, graves on the slopes round it falling with the
+# ground, a path of flags down the hill, boulders, grass, and a dead tree.
+prop hill_chapel "Hill Chapel, Ruined" ruins hero=1 budget=40000
+  set wide=5.6 long=10 tall=4.6
+  set r="max(0,hypot(x*.85,y*.6)-4.4)"
+
+  # The hill: flat on top, falling away round it, rougher further out; bare earth where it is steep.
+  ground = terrain at=0,0,-4.5 size=26,26 cells=36 mat=#4e6a2c/fabric steep=earth slope=34 fade=.7 \
+      height=4.5-min(3.8,r*.5)-rough(x*.15+3,y*.15)*1.6*min(1,r/4)
+
+  # The flag floor, some flags gone.
+  box size=1,1,.06 mat=pick(stone,dark) turn=0,0,rand(-4,4) wobble=.015 when=rand()>.22 grid 6x10 every .92,.96 \
+      jitter=.03 at=-2.3,-4.3,on
+
+  # The walls, each broken its own way, and the gable front round its door with a cross on top.
+  east = box at=wide/2,0,on size=.6,long,tall mat=stone core=dark break=.42 chunk=.45 rubble=.35
+  west = box at=-wide/2,0,on size=.6,long,tall mat=stone core=dark break=.3 chunk=.45 rubble=.35
+  apse = box at=0,long/2,on size=wide+.6,.6,tall+1.2 mat=stone core=dark break=.36 chunk=.45 rubble=.35
+  front = archwall at=0,-long/2-.3,0 width=wide+.6 height=tall+.4 thick=.6 mat=stone open=1.8 spring=2.3
+  extrude at=0,-long/2,tall+.4 width=.6 mat=stone -wide/2-.3:0 wide/2+.3:0 0:2.1 axis=y
+  box at=0,-long/2,tall+2.5+.5 size=.14,.14,1 mat=dark
+  box at=0,-long/2,tall+2.5+.7 size=.6,.14,.14 mat=dark
+
+  # The altar with its candlesticks, and pews in two rows, some gone, some knocked askew.
+  altar = box at=0,long/2-1.4,on size=1.6,.8,1 mat=stone core=dark break=.12 chunk=.3
+  cylinder on=altar at=.6,0 radius=.03 height=.3 mat=brass sides=5 mirror x
+  row y at=1.4,-1.2,0 gap=.5 mirror x {
+    pew turn=pick(0,0,0,0,9,-12),0,rand(-7,7) when=rand()>.2 repeat 6
+  }
+
+  # Moss on every top the walls have left, ivy up their sides.
+  box size=rand(.08,.18),rand(.08,.18),.035 mat=moss turn=0,0,rand(0,360) wobble=.01 scatter 55 on east facing up apart .1
+  box size=rand(.08,.18),rand(.08,.18),.035 mat=moss turn=0,0,rand(0,360) wobble=.01 scatter 45 on west facing up apart .1
+  box size=rand(.08,.18),rand(.08,.18),.035 mat=moss turn=0,0,rand(0,360) wobble=.01 scatter 40 on apse facing up apart .1
+  box size=.13,.16,.02 mat=moss turn=0,0,rand(0,360) scatter 70 on west facing side
+  box size=.13,.16,.02 mat=moss turn=0,0,rand(0,360) scatter 60 on front facing side
+
+  # Graves on the slopes falling with the ground, a path of flags down the hill, boulders, grass, a dead tree.
+  grave kind=pick(0,0,1,2,3,3,4) stone=pick(#8a8a84,#7a7a80,#9a9488,#6e6e68)/stone turn=0,0,rand(-25,25) \
+      when=hypot(here.x*.85,here.y*.6)>5.2 drop=lean sink=.12 scatter 34 over 22,22 apart 1.5
+  box size=.5,.42,.08 mat=pick(stone,dark) turn=0,0,rand(-20,20) wobble=.02 drop=lean \
+      sink=.05 along="0,-5.9 .4,-7.6 -.3,-9.4 .3,-11.2 0,-12.6" every=.62
+  boulder size=rand(.25,.6) when=hypot(here.x*.85,here.y*.6)>6 drop=1 sink=.15 scatter 18 over 24,24 apart 2
+  tuft h=rand(.2,.42) col=pick(#5a7a32,#6a7a3a,#4a6a2a,#7a7a46)/plastic when=hypot(here.x*.85,here.y*.6)>4.6 drop=1 \
+      scatter 150 over 24,24 apart .45
+  dead_tree at=6.5,4.5,0 drop=1
+
+# One wall four ways: break=0, .2, .4 and .6, each with rubble, moss on what is left and ivy up its face.
+prop ruin_stages "Ruin Stages" ruins hero=1 budget=12000
+  box at=4.5,0,-.03 size=14,4,.06 mat=#4e6a2c/fabric
+  wall = box at=-.5,0,on size=3,.4,2.6 mat=stone core=dark break=i*.2 chunk=.32 rubble=.6 repeat 4 every 3.5,0,0
+  box size=rand(.07,.15),rand(.07,.15),.03 mat=moss turn=0,0,rand(0,360) scatter 90 on wall facing up apart .08
+  box size=.12,.15,.02 mat=moss turn=0,0,rand(0,360) scatter 80 on wall facing side
+
+# Standing stones on a moor: a ring of twelve, every one its own size, leaning with the ground it stands on,
+# lichen on their tops and faces, one fallen.
+prop standing_stones "Standing Stones" ruins hero=1 budget=16000
+  moor = terrain size=16,16 cells=28 mat=#6a6a3a/fabric steep=#5a5a44/stone slope=28 fade=.75 height=rough(x*.12,y*.12)*2.2
+  stones = box at=0,4.2,1 size=rand(.7,1),rand(.35,.5),rand(1.6,2.6) mat=#8a8678/concrete taper=rand(.6,.85),.8 wobble=.06 \
+      drop=lean sink=.3 turn=0,0,rand(-12,12) when=i!=7 ring 12
+  box at=0,4.6,1 size=.9,2.1,.45 mat=#8a8678/concrete wobble=.06 turn=0,0,30*7+rand(-10,10) drop=lean
+  box size=rand(.06,.12),rand(.06,.12),.02 mat=pick(#a8a050,#7a8a4a,#c8c070)/fabric turn=0,0,rand(0,360) scatter 120 on stones apart .07
+  tuft h=rand(.15,.32) col=pick(#7a7a46,#6a6a3a,#8a7a4a)/plastic drop=1 scatter 120 over 15,15 apart .45

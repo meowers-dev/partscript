@@ -1,0 +1,28 @@
+# Every shape and modifier once. Its baked geometry (golden/shapes.json.gz) matched the original
+# Blender-faithful engine polygon for polygon; test_golden keeps every later change honest.
+prop p_stall "Stall" street
+  use stall
+prop p_misc "Misc"
+  bb 0,0,~ 1,.6,.8 .05 wood taper=.8,.9 lean=0,-.1
+  c .8,0,~ .2 .9 steel_grey s=10 rt=.1
+  cone -.8,0,1 .3 .5 rubber
+  sph 0,.8,.3 .3 brass s=8 rings=5
+  tube 0,-.8,.2 .3 .25 .4 steel_dark
+  wedge 1.5,0,~ .6,.6,.4 wood r=0,0,30
+  lathe -1.5,0,0 steel_red .2:0 .25:.3 .1:.5 .001:.6 s=10
+  ext 0,1.6,.5 .4 canvas -.5:0 .5:0 .4:.3 0:.6 -.4:.3 ax=y
+  pipe steel_dark .03 -1,0,1 0,0,1.4 1,0,1 s=6
+  sweep steel_grey prof=-.05:0,.05:0,.05:.1,-.05:.1 -1,-1,0 0,-1.2,0 1,-1,0
+  archwall 3,0,0 2 2.5 .3 brick s=8
+  vault 3,2,2 2 1 .5 plaster s=8
+  face wood 0,0,2 1,0,2 1,1,2.2 double=1
+  pan 0,-.31,.5 .4 .3 steel_white
+  b 0,0,2.5 .2,.2,.2 #556677/metal *3@.3,0,0 mx jit=.05,10
+  b 0,0,3 .1,.1,.1 steel_blue *6%60
+  at 2,2,0 r=0,0,45 s=1,1,1.5 {
+    b 0,0,~ .3,.3,.3 crate_wood
+  }
+  use barrel -2,2,0
+  use festoon 0,3,0
+  part lid smooth=1
+  sph 0,0,4 .4 steel_white s=12 rings=8

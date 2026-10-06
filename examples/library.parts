@@ -1,0 +1,32 @@
+# Bookcases full of books.
+#
+#   repeat N every X,Y,Z     N copies in a line
+#   mat=a|b|c                the colour cycles copy by copy
+#   jitter=P,D               each copy nudged up to P and turned up to D degrees
+#
+# A row of books is three runs of copies laid in between each other, so no two shelves look alike;
+# a bookcase calls a row per shelf.
+
+# Three runs of books of different sizes, ten centimetres apart, each its own colours.
+def book_row w=.9
+  box at=-w/2+.02,0,on size=.03,.2,.24 mat=#8a1c22/paint|#2a4a7a/paint|#3a6a3a/paint|#c8a040/paint jitter=.004,2 \
+      skip=-z,+y repeat (w/.1) every .1,0,0
+  box at=-w/2+.055,0,on size=.028,.19,.2 mat=#5a3a22/paint|#d8d0c0/paint|#2a2a3a/paint jitter=.004,2 skip=-z,+y repeat (w/.1) every .1,0,0
+  box at=-w/2+.085,0,on size=.022,.21,.27 mat=#6a2a5a/paint|#c86a2a/paint|#2a6a6a/paint|#e8e0d0/paint jitter=.004,2 \
+      skip=-z,+y repeat (w/.1-1) every .1,0,0
+
+# A bookcase: sides, a top, n shelves, a back and a kick board, and a row of books on every shelf but the top.
+def bookcase w=1 h=1.8 n=5 m=wood
+  box at=w/2-.02,0,on size=.04,.34,h mat=m mirror x
+  bevel_box at=0,0,h-.02 size=w+.04,.36,.04 bevel=.01 mat=m
+  box at=0,0,.06 size=w-.04,.32,.03 mat=m repeat n every 0,0,(h-.12)/(n-1)
+  box at=0,.16,h/2 size=w,.02,h mat=m
+  box at=0,-.16,.04 size=w-.04,.02,.08 mat=m
+  book_row at=0,-.02,.075 w=w-.1 repeat (n-1) every 0,0,(h-.12)/(n-1)
+
+# Three bookcases, the middle one taller, and the std ladder leaning on it.
+prop library_wall "Library Wall" hero=1
+  bookcase at=-1.05,0,0 m=#5a3a22/wood
+  bookcase at=0,0,0 n=6 h=2.1
+  bookcase at=1.05,0,0 m=#5a3a22/wood
+  ladder at=0,-.62,0 h=2.2 w=.4 m=wood turn=-14,0,0
