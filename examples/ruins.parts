@@ -90,7 +90,7 @@ prop ruin_stages "Ruin Stages" ruins hero=1 budget=12000
 # Standing stones on a moor: a ring of twelve, every one its own size, leaning with the ground it stands on,
 # lichen on their tops and faces, one fallen.
 prop standing_stones "Standing Stones" ruins hero=1 budget=16000
-  moor = terrain size=16,16 cells=28 mat=#6a6a3a/fabric steep=#5a5a44/stone slope=28 fade=.75 height=rough(x*.12,y*.12)*2.2
+  moor = terrain size=16,16 cells=28 mat=#6a6a3a/fabric steep=#5a5a44/stone fade=.75 height=rough(x*.12,y*.12)*2.2
   stones = box at=0,4.2,1 size=rand(.7,1),rand(.35,.5),rand(1.6,2.6) mat=#8a8678/concrete taper=rand(.6,.85),.8 wobble=.06 \
       drop=lean sink=.3 turn=0,0,rand(-12,12) when=i!=7 ring 12
   box at=0,4.6,1 size=.9,2.1,.45 mat=#8a8678/concrete wobble=.06 turn=0,0,30*7+rand(-10,10) drop=lean
