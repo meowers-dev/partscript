@@ -500,11 +500,7 @@ pub fn counts(text: &str, env: &Env) -> Result<Vec<i64>, String> {
 		if value < 0.0 || value.is_nan() {
 			return Err(format!("copy count {item} = {}", py::repr(value)));
 		}
-		let n = py::round(value);
-		if n > MAX_COUNT as f64 {
-			return Err(format!("copy count {item} = {}: more than {MAX_COUNT} copies", py::repr(value)));
-		}
-		out.push(n as i64);
+		out.push(py::round(value) as i64);
 	}
 	Ok(out)
 }

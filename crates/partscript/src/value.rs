@@ -145,18 +145,9 @@ impl Bounds {
 				}
 			}
 		}
-		let mut a = [f64::INFINITY; 3];
-		let mut b = [f64::NEG_INFINITY; 3];
-		for c in &corners {
-			for k in 0..3 {
-				if c[k] < a[k] {
-					a[k] = c[k];
-				}
-				if c[k] > b[k] {
-					b[k] = c[k];
-				}
-			}
-		}
+		// min() and max() of the corners as Python takes them (from the first, so a NaN there stays)
+		let a = [0, 1, 2].map(|k| py::min_iter(corners.iter().map(|c| c[k])).unwrap());
+		let b = [0, 1, 2].map(|k| py::max_iter(corners.iter().map(|c| c[k])).unwrap());
 		*self.seen.borrow_mut() = Some((*frame, (a, b)));
 		Ok((a, b))
 	}
