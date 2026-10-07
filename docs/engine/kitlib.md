@@ -68,8 +68,9 @@ Points and vectors are `[f64; 3]` (`kitlib::maths::V3`).
 - `glb_bytes(asset_id, &baked_parts, &materials, &textures, steps, material_prefix)` returns
   `(bytes, missing textures)`.
 - `glb_scene(&baked_parts, &scene, &materials, &textures, steps, material_prefix)` writes a `Scene`: its
-  `nodes` in order (`SceneNode`: name, parent, translation, rotation, scale, and a `SceneMesh`, either one
-  baked part written from an origin or several skinned whole to joints), its `skins` (joints and the
+  `nodes` in order (`SceneNode`: name, parent, translation, rotation, scale, and a `SceneMesh`: one
+  baked part written from an origin, several skinned whole to joints, or a `WeightedMesh` of its own
+  corners, each weighted to up to four joints, as an imported character's smooth skin), its `skins` (joints and the
   skeleton root; the inverse bind matrices come from the nodes' rest transforms) and its `clips`. Nodes
   with no parent are the scene's roots.
 

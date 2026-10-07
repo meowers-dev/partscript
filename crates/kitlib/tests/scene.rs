@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use kitlib::anim::{quat_axis_angle, Channel, Clip, Event, Interp, Key, Track};
 use kitlib::bake::{bake, Baked};
 use kitlib::geom::{Mat, Part};
-use kitlib::gltf::{glb_json, glb_scene, Scene, SceneMesh, SceneNode, Skin};
+use kitlib::gltf::{glb_json, glb_scene, Scene, SceneMesh, SceneNode, Skin, WeightedMesh};
 use kitlib::json::Json;
 
 fn boxed(name: &str, centre: [f64; 3], size: [f64; 3], materials: &kitlib::geom::Materials) -> Baked {
@@ -103,4 +103,50 @@ fn clips_write_samplers_channels_and_events() {
 	assert_eq!(targets, vec![(2, "rotation"), (1, "translation")]);
 	let extras = walk.get("extras").unwrap();
 	assert_eq!(extras.dumps(true), r#"{"events":[{"t":0.5,"name":"footstep","mark":"Foot_L"}],"speed":0.55}"#);
+}
+
+#[test]
+fn a_weighted_mesh_keeps_each_corners_joints_weights_and_texture() {
+	let mut library = HashMap::new();
+	library.insert("skin".to_string(), Mat::new("imported/skin.png", 1.0));
+	let mut scene = Scene::default();
+	scene.nodes.push(SceneNode::new("arm", None));
+	scene.nodes.push(SceneNode::new("UpperArm_L", Some(0)));
+	let mut fore = SceneNode::new("LowerArm_L", Some(1));
+	fore.translation = [0.3, 0.0, 0.0];
+	scene.nodes.push(fore);
+	let mesh = WeightedMesh {
+		name: "arm_mesh".into(),
+		material: "skin".into(),
+		positions: vec![[0.0, 0.0, 0.0], [0.3, 0.0, 0.05], [0.6, 0.0, 0.0]],
+		normals: vec![[0.0, -1.0, 0.0]; 3],
+		uvs: vec![[0.0, 0.0], [0.5, 0.25], [1.0, 0.0]],
+		joints: vec![[0, 0, 0, 0], [0, 1, 0, 0], [1, 0, 0, 0]],
+		weights: vec![[1.0, 0.0, 0.0, 0.0], [0.5, 0.5, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
+		indices: vec![0, 1, 2],
+	};
+	let mut body = SceneNode::new("arm_mesh", Some(0));
+	body.mesh = Some(SceneMesh::Weighted(mesh));
+	body.skin = Some(0);
+	scene.nodes.push(body);
+	scene.skins.push(Skin { name: "humanoid".into(), joints: vec![1, 2], skeleton: Some(1) });
+	let skin_png = kitlib::gltf::encode_png(&[200, 160, 120], 1, 1, 3, 6);
+	let textures = move |name: &str| if name == "imported/skin.png" { Some(skin_png.clone()) } else { None };
+	let (glb, missing) = glb_scene(&[], &scene, &library, &textures, false, "");
+	assert!(missing.is_empty(), "{missing:?}");
+	let doc = Json::parse(&glb_json(&glb)).unwrap();
+	let accessors = doc.get("accessors").unwrap().as_list();
+	let primitive = doc.get("meshes").unwrap().idx(0).get("primitives").unwrap().idx(0);
+	let attributes = primitive.get("attributes").unwrap();
+	for (name, kind) in [("POSITION", "VEC3"), ("NORMAL", "VEC3"), ("TEXCOORD_0", "VEC2"), ("COLOR_0", "VEC4"), ("JOINTS_0", "VEC4"), ("WEIGHTS_0", "VEC4")] {
+		let accessor = &accessors[attributes.get(name).unwrap().as_i64() as usize];
+		assert_eq!((accessor.get("count").unwrap().as_i64(), accessor.get("type").unwrap().as_str()), (3, kind), "{name}");
+	}
+	// Z up becomes Y up: the middle corner's 5 cm lift is glTF's y
+	let position = &accessors[attributes.get("POSITION").unwrap().as_i64() as usize];
+	assert_eq!(position.get("max").unwrap().as_list()[1], Json::Float(0.05f32 as f64));
+	let material = doc.get("materials").unwrap().idx(primitive.get("material").unwrap().as_i64() as usize);
+	let texture = material.get("pbrMetallicRoughness").unwrap().get("baseColorTexture").unwrap().get("index").unwrap().as_i64();
+	let image = doc.get("textures").unwrap().idx(texture as usize).get("source").unwrap().as_i64();
+	assert_eq!(doc.get("images").unwrap().idx(image as usize).get("name").unwrap().as_str(), "skin.png");
 }

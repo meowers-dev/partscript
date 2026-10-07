@@ -287,6 +287,35 @@ impl Glb<'_> {
 		list_push(&mut self.json, "meshes", mesh)
 	}
 
+	/// A weighted mesh: one primitive, its corners skinned to up to four joints each.
+	fn weighted_mesh(&mut self, m: &WeightedMesh) -> usize {
+		let positions: Vec<f64> = m.positions.iter().flat_map(|p| [p[0], p[2], -p[1]]).collect();
+		let normals: Vec<f64> = m.normals.iter().flat_map(|n| [n[0], n[2], -n[1]]).collect();
+		let uvs: Vec<f64> = m.uvs.iter().flat_map(|uv| [uv[0], uv[1]]).collect();
+		let joints: Vec<u16> = m.joints.iter().flatten().copied().collect();
+		let weights: Vec<f64> = m.weights.iter().flatten().copied().collect();
+		let mut attributes = Json::dict();
+		attributes.set("POSITION", self.accessor(Values::F32(positions), 3, "VEC3", ARRAY_BUFFER, false, true));
+		if m.normals.len() == m.positions.len() {
+			attributes.set("NORMAL", self.accessor(Values::F32(normals), 3, "VEC3", ARRAY_BUFFER, false, false));
+		}
+		if m.uvs.len() == m.positions.len() {
+			attributes.set("TEXCOORD_0", self.accessor(Values::F32(uvs), 2, "VEC2", ARRAY_BUFFER, false, false));
+		}
+		// white, as every part's mesh has a colour per corner (viewers that shade by it then show the texture as it is)
+		attributes.set("COLOR_0", self.accessor(Values::U16(vec![65535; m.positions.len() * 4]), 4, "VEC4", ARRAY_BUFFER, true, false));
+		attributes.set("JOINTS_0", self.accessor(Values::U16(joints), 4, "VEC4", ARRAY_BUFFER, false, false));
+		attributes.set("WEIGHTS_0", self.accessor(Values::F32(weights), 4, "VEC4", ARRAY_BUFFER, false, false));
+		let material_index = self.material(&m.material);
+		let index_values = if m.positions.len() > 65535 { Values::U32(m.indices.clone()) } else { Values::U16(m.indices.iter().map(|i| *i as u16).collect()) };
+		let indices_index = self.accessor(index_values, 1, "SCALAR", ELEMENT_ARRAY_BUFFER, false, false);
+		let mut primitive = Json::dict();
+		primitive.set("attributes", attributes).set("material", material_index).set("indices", indices_index);
+		let mut mesh = Json::dict();
+		mesh.set("name", m.name.as_str()).set("primitives", Json::List(vec![primitive]));
+		list_push(&mut self.json, "meshes", mesh)
+	}
+
 	/// Data that is not vertex or index data (animation keys, inverse bind matrices): no buffer target.
 	fn data(&mut self, values: Vec<f64>, width: usize, kind: &str, bounds: bool) -> usize {
 		let bytes: Vec<u8> = values.iter().flat_map(|x| pack_f32(*x).to_le_bytes()).collect();
@@ -429,6 +458,25 @@ pub enum SceneMesh {
 	Part { baked: usize, origin: V3 },
 	/// baked parts as one mesh in prop space, each part skinned whole to a joint (an index into the skin's joints)
 	Skinned { name: String, parts: Vec<(usize, u16)> },
+	/// a mesh of its own, each corner weighted to up to four joints (an imported character's smooth skin)
+	Weighted(WeightedMesh),
+}
+
+/// Corners with their own joints and weights, in prop space and the authoring axes (Z up).
+#[derive(Clone, Debug, Default)]
+pub struct WeightedMesh {
+	pub name: String,
+	/// a key into the materials, looked up like any part's
+	pub material: String,
+	pub positions: Vec<V3>,
+	pub normals: Vec<V3>,
+	/// texture coordinates as glTF has them (v runs down the image)
+	pub uvs: Vec<[f64; 2]>,
+	/// per corner: indices into the skin's joints, and how much each moves it (summing to 1)
+	pub joints: Vec<[u16; 4]>,
+	pub weights: Vec<[f64; 4]>,
+	/// three corners a triangle
+	pub indices: Vec<u32>,
 }
 
 /// A skeleton: joints are node indices; the inverse bind matrices come from the nodes' rest transforms.
@@ -505,6 +553,10 @@ pub fn glb_scene(baked_parts: &[Baked], scene: &Scene, materials: &HashMap<Strin
 			Some(SceneMesh::Skinned { name, parts }) => {
 				let pieces: Vec<Piece> = parts.iter().map(|(b, j)| Piece { baked: &baked_parts[*b], origin: None, joint: Some(*j) }).collect();
 				let mesh = glb.mesh_of(&pieces, name, steps);
+				node.set("mesh", mesh);
+			}
+			Some(SceneMesh::Weighted(weighted)) => {
+				let mesh = glb.weighted_mesh(weighted);
 				node.set("mesh", mesh);
 			}
 			None => {}
