@@ -625,6 +625,92 @@ pub fn nfkc(text: &str) -> String {
 	out.into_iter().filter_map(char::from_u32).collect()
 }
 
+// ------------------------------------------------------------------ what Python's math module raised
+
+/// An exception Python's math module raised part-way through a shape. The geometry here carries on
+/// (with NaN); the statement being drawn reports the first fault, as Python stopped at it.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Fault {
+	/// a ValueError ("math domain error"): reported on the line
+	Value(String),
+	/// an exception the original never caught (OverflowError, ZeroDivisionError): the build stops
+	Fatal(String),
+}
+
+thread_local! {
+	static FAULT: std::cell::RefCell<Option<Fault>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Records a fault unless an earlier one is waiting.
+pub fn raise(fault: Fault) {
+	FAULT.with(|f| {
+		let mut f = f.borrow_mut();
+		if f.is_none() {
+			*f = Some(fault);
+		}
+	});
+}
+
+/// The waiting fault, if any (and clears it).
+pub fn take_fault() -> Option<Fault> {
+	FAULT.with(|f| f.borrow_mut().take())
+}
+
+/// math.cos, math.sin and the rest as CPython's math module checks them: NaN out of a number in is a
+/// domain error, and so is an infinity out of a finite number.
+fn math_1(x: f64, r: f64) -> f64 {
+	if (r.is_nan() && !x.is_nan()) || (r.is_infinite() && x.is_finite()) {
+		raise(Fault::Value("math domain error".into()));
+	}
+	r
+}
+
+/// math.cos and math.sin (an infinite angle is a domain error).
+pub trait PyMath {
+	fn py_cos(self) -> f64;
+	fn py_sin(self) -> f64;
+}
+
+impl PyMath for f64 {
+	fn py_cos(self) -> f64 {
+		math_1(self, self.cos())
+	}
+
+	fn py_sin(self) -> f64 {
+		math_1(self, self.sin())
+	}
+}
+
+// ------------------------------------------------------------------ min and max, as Python compares
+
+/// min(a, b): b only when b < a, so a NaN first argument stays and a NaN second one is passed over.
+pub fn min2(a: f64, b: f64) -> f64 {
+	if b < a {
+		b
+	} else {
+		a
+	}
+}
+
+/// max(a, b): b only when b > a.
+pub fn max2(a: f64, b: f64) -> f64 {
+	if b > a {
+		b
+	} else {
+		a
+	}
+}
+
+/// min() of some numbers: the first, replaced by each later one that is smaller (None when empty).
+pub fn min_iter<I: IntoIterator<Item = f64>>(items: I) -> Option<f64> {
+	items.into_iter().reduce(min2)
+}
+
+/// max() of some numbers.
+pub fn max_iter<I: IntoIterator<Item = f64>>(items: I) -> Option<f64> {
+	items.into_iter().reduce(max2)
+}
+
 // ------------------------------------------------------------------ set iteration order
 
 /// hash() of a value made of integers, as CPython (3.8 and later, 64-bit) computes it.

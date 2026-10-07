@@ -61,7 +61,7 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 	let centre = |c: Cell| -> V3 {
 		[-half[0] + (c.0 as f64 + 0.5) * cell[0], -half[1] + (c.1 as f64 + 0.5) * cell[1], -half[2] + (c.2 as f64 + 0.5) * cell[2]]
 	};
-	let scale = 1.0 / (chunk * 4.5).max(1e-6);
+	let scale = 1.0 / py::max2(chunk * 4.5, 1e-6);
 	let mut scores: HashMap<Cell, f64> = HashMap::new();
 	for &c in &cells {
 		let [x, y, z] = centre(c);
@@ -72,7 +72,7 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 	}
 	let mut order = cells.clone();
 	order.sort_by(|a, b| scores[b].partial_cmp(&scores[a]).unwrap_or(std::cmp::Ordering::Equal));
-	let take = py::round(amount.clamp(0.0, 1.0) * cells.len() as f64) as usize;
+	let take = py::round(py::max2(0.0, py::min2(1.0, amount)) * cells.len() as f64) as usize;
 	let gone_first: PySet<Cell> = order[..take.min(order.len())].iter().copied().collect();
 	// Anything no longer joined to the bottom through the rest falls too.
 	let kept_all = cells.iter().copied().collect::<PySet<Cell>>().difference(&gone_first);

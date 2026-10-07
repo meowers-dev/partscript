@@ -363,6 +363,7 @@ impl Project {
 	/// One prop: its parts and steps, baked, and (glb) written to .glb bytes.
 	pub fn build(&mut self, name: &str, options: &BuildOptions) -> Result<Built, PartScriptError> {
 		let started = clock();
+		kitlib::py::take_fault();
 		let prop = self.prop(name)?;
 		let asset_id = self.host.asset_id(&prop.name);
 		let host = self.host.clone();
@@ -426,6 +427,12 @@ impl Project {
 			let (data, missing) = glb_bytes(&asset_id, &baked, &materials, &textures, options.steps, "");
 			glb = data;
 			warnings.extend(missing.iter().map(|name| format!("{asset_id}: texture {name} could not be made; shown grey")));
+		}
+		// a fault outside any line was an exception nothing caught: the build stops
+		match kitlib::py::take_fault() {
+			Some(kitlib::py::Fault::Value(message)) => return Err(PartScriptError::fatal(format!("ValueError: {message}"))),
+			Some(kitlib::py::Fault::Fatal(message)) => return Err(PartScriptError::fatal(message)),
+			None => {}
 		}
 		Ok(Built { asset_id, parts, steps: raw_steps, snaps: declared, joints, links, warnings, baked, origins, glb, seconds: clock() - started })
 	}

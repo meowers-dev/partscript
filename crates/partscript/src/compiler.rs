@@ -6,6 +6,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use kitlib::py::PyMath;
 use kitlib::geom::{bounds_of, empty_origin, Face, Mat, Origin, Part};
 use kitlib::json::Json;
 use kitlib::maths::{self, add, cross, dot, euler, length, normalized, scale, sub, M3, M4, V3};
@@ -74,6 +75,15 @@ pub type CResult<T> = Result<T, Fail>;
 
 /// int(x) for a float, as Python does it: towards zero; NaN is an error for the line, and infinity
 /// (an OverflowError the original never caught) ends the build.
+/// The ZeroDivisionError Python met dividing a turn into 0 steps (`k / steps for k in range(steps + 1)`):
+/// the original never caught it, so the build stops.
+fn zero_steps(steps: i64) -> CResult<()> {
+	if steps == 0 {
+		return Err(Fail::Script(PartScriptError::fatal("ZeroDivisionError: float division by zero")));
+	}
+	Ok(())
+}
+
 pub fn py_int(v: f64) -> CResult<i64> {
 	if v.is_nan() {
 		return Err(Fail::Value("cannot convert float NaN to integer".into()));
@@ -387,8 +397,8 @@ impl Compiler {
 		let points: Vec<V3> = faces.iter().flat_map(|f| f.points.iter().map(|p| [p[0] - ox, p[1] - oy, p[2] - oz])).collect();
 		let mut out = Vec::new();
 		for (k, axis, size) in [(0, "x", w), (1, "y", d), (2, "z", h)] {
-			let low = points.iter().map(|p| p[k]).fold(f64::INFINITY, f64::min);
-			let high = points.iter().map(|p| p[k]).fold(f64::NEG_INFINITY, f64::max);
+			let low = py::min_iter(points.iter().map(|p| p[k])).unwrap_or(f64::INFINITY);
+			let high = py::max_iter(points.iter().map(|p| p[k])).unwrap_or(f64::NEG_INFINITY);
 			if low < -0.35 || high > size + 0.35 {
 				out.push(format!("{axis} {low:.2}..{high:.2} m (the room is 0..{size:.2})"));
 			}
@@ -410,8 +420,8 @@ impl Compiler {
 				let xs: Vec<f64> = f.points.iter().map(|p| p[0] - ox).collect();
 				let ys: Vec<f64> = f.points.iter().map(|p| p[1] - oy).collect();
 				let zs: Vec<f64> = f.points.iter().map(|p| p[2] - oz).collect();
-				let max = |v: &[f64]| v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-				let min = |v: &[f64]| v.iter().copied().fold(f64::INFINITY, f64::min);
+				let max = |v: &[f64]| py::max_iter(v.iter().copied()).unwrap_or(f64::NEG_INFINITY);
+				let min = |v: &[f64]| py::min_iter(v.iter().copied()).unwrap_or(f64::INFINITY);
 				if max(&zs) < 0.05 || min(&zs) > 2.0 {
 					continue;
 				}
@@ -636,8 +646,19 @@ impl Compiler {
 		}
 		let mut env = env.clone();
 		env.insert("__frame__".into(), Value::Frame(Rc::new(*frame)));
+		// Python stopped at a fault before it drew anything after: the statement that raised it reports it
+		if let Some(fault) = py::take_fault() {
+			py::raise(fault);
+			return Err(Fail::Value(String::new()));
+		}
 		for stmt in body {
-			match self.statement(stmt, &mut env, parts, frame, depth, prop) {
+			let result = self.statement(stmt, &mut env, parts, frame, depth, prop);
+			let result = match py::take_fault() {
+				Some(py::Fault::Value(message)) => Err(Fail::Value(message)),
+				Some(py::Fault::Fatal(message)) => Err(Fail::Script(PartScriptError::fatal(message))),
+				None => result,
+			};
+			match result {
 				Ok(()) => {}
 				Err(Fail::Value(message)) => return Err(PartScriptError::new(format!("{}: {message}", stmt.op), &stmt.file, stmt.line).into()),
 				Err(other) => return Err(other),
@@ -1072,9 +1093,19 @@ impl Compiler {
 
 	/// A position whose ~ components sit the shape on that axis (base + half extent).
 	fn centre(&self, text: &str, env: &Env, half: V3) -> CResult<V3> {
+		let out = self.centre_all(text, env, half)?;
+		if out.len() < 3 {
+			return Err(format!("not enough values to unpack (expected 3, got {})", out.len()).into());
+		}
+		// a fourth number and on are passed over, as the original passed them over
+		Ok([out[0], out[1], out[2]])
+	}
+
+	/// Every number of a position (centre() takes the first three).
+	fn centre_all(&self, text: &str, env: &Env, half: V3) -> CResult<Vec<f64>> {
 		if !text.contains(',') {
 			if let Some(point) = anchor_point(text, env)? {
-				return Ok(point);
+				return Ok(point.to_vec());
 			}
 		}
 		let mut parts = split_top(text, ',');
@@ -1094,10 +1125,7 @@ impl Compiler {
 				out.push(evaluate(p, env)?);
 			}
 		}
-		if out.len() != 3 {
-			return Err(format!("too many values to unpack (expected 3, got {})", out.len()).into());
-		}
-		Ok([out[0], out[1], out[2]])
+		Ok(out)
 	}
 
 	fn arc(&self, text: &str, env: &Env) -> CResult<Vec<V3>> {
@@ -1107,10 +1135,11 @@ impl Compiler {
 		}
 		let (cx, cz, radius, a0, a1) = (values[0], values[1], values[2], values[3], values[4]);
 		let steps = if values.len() > 5 { py_int(values[5])? } else { 12 };
+		zero_steps(steps)?;
 		Ok((0..=steps)
 			.map(|k| {
 				let angle = (a0 + (a1 - a0) * k as f64 / steps as f64).to_radians();
-				[cx + radius * angle.cos(), 0.0, cz + radius * angle.sin()]
+				[cx + radius * angle.py_cos(), 0.0, cz + radius * angle.py_sin()]
 			})
 			.collect())
 	}
@@ -1294,14 +1323,14 @@ impl Compiler {
 		let sides = py_int(evaluate(o.get("s").map(String::as_str).unwrap_or("6"), env)?)?;
 		let bulge = match o.get("bulge") {
 			Some(b) => evaluate(b, env)?,
-			None => 0.06f64.max(0.2f64.min(gap * 0.5)),
+			None => py::max2(0.06, py::min2(0.2, gap * 0.5)),
 		};
 		let material = self.material(stmt, o.get("mat").map(String::as_str).unwrap_or("steel_dark"), env, 0)?;
 		let path = [a.pos, add(a.pos, scale(a.dir, bulge)), add(b.pos, scale(b.dir, bulge)), b.pos];
 		let profile: Vec<[f64; 2]> = (0..sides)
 			.map(|k| {
 				let angle = std::f64::consts::TAU * k as f64 / sides as f64;
-				[radius * angle.cos(), radius * angle.sin()]
+				[radius * angle.py_cos(), radius * angle.py_sin()]
 			})
 			.collect();
 		let mut scratch = self.new_part("bridge");
@@ -1326,7 +1355,7 @@ impl Compiler {
 				point = if disc {
 					let angle = rng.uniform(0.0, std::f64::consts::TAU);
 					let radius = width * rng.random().sqrt();
-					[radius * angle.cos(), radius * angle.sin(), 0.0]
+					[radius * angle.py_cos(), radius * angle.py_sin(), 0.0]
 				} else {
 					[rng.uniform(-width / 2.0, width / 2.0), rng.uniform(-depth / 2.0, depth / 2.0), 0.0]
 				};
@@ -1366,7 +1395,7 @@ impl Compiler {
 			let n = normalized(inverse.to_3x3().apply(normal));
 			let axis = cross([0.0, 0.0, 1.0], n);
 			let turn = if length(axis) > 1e-6 {
-				M4::rotation_axis(n[2].clamp(-1.0, 1.0).acos(), normalized(axis))
+				M4::rotation_axis(py::max2(-1.0, py::min2(1.0, n[2])).acos(), normalized(axis))
 			} else if n[2] > 0.0 {
 				M4::IDENTITY
 			} else {
@@ -1387,7 +1416,7 @@ impl Compiler {
 		let m = m.mul(&local);
 		let seed = env.get("__seed__").map(Value::text).unwrap_or_default();
 		let mut rng = PyRandom::from_str(&format!("{seed}|rubble"));
-		let take = (fallen.len()).min((py::round(fallen.len() as f64 * share.min(1.0)) as usize).max(1)).min(120);
+		let take = (fallen.len()).min((py::round(fallen.len() as f64 * py::min2(share, 1.0)) as usize).max(1)).min(120);
 		let pieces = rng.sample(&fallen, take);
 		let core = stmt.opt("core").map(str::to_string).unwrap_or_else(|| stmt.args.get(2).cloned().unwrap_or_default());
 		let material = match self.material(stmt, &core, env, 0) {
@@ -1548,7 +1577,7 @@ impl Compiler {
 				p.push_at(centre, rotation);
 				let chunk = match o.get("chunk") {
 					Some(c) => num(c)?,
-					None => 0.15f64.max(size[0].min(size[1]).min(size[2])).max(size[0].max(size[1]).max(size[2]) / 14.0),
+					None => py::max2(py::max2(0.15, py::min2(py::min2(size[0], size[1]), size[2])), py::max2(py::max2(size[0], size[1]), size[2]) / 14.0),
 				};
 				let material = mat(arg(a, 2)?)?;
 				let amount = num(o.get("break").unwrap())?;
@@ -1628,12 +1657,14 @@ impl Compiler {
 				p.push_at(centre, rotation);
 				p.push_at([0.0; 3], axis_rot);
 				let default_sides = if op == "tube" { "12" } else if op == "c" { "10" } else { "8" };
-				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or(default_sides))?)?;
-				let sides = sides.max(0) as usize;
+				let sides_int = py_int(num(o.get("s").map(String::as_str).unwrap_or(default_sides))?)?;
+				let sides = sides_int.max(0) as usize;
 				if op == "tube" {
 					let h = height / 2.0;
+					zero_steps(sides_int)?;
 					p.lathe(&[[inner, -h], [radius, -h], [radius, h], [inner, h], [inner, -h]], &material, sides, [0.0; 3], [0.0, std::f64::consts::TAU], false, [0.0; 3]);
 				} else if op == "cone" {
+					zero_steps(sides_int)?;
 					p.cone([0.0; 3], radius, height, &material, sides, [0.0; 3]);
 				} else {
 					let arc = match o.get("arc") {
@@ -1648,6 +1679,9 @@ impl Compiler {
 						Some(c) => Some(mat(c)?),
 						None => None,
 					};
+					if (arc[1] - arc[0] - std::f64::consts::TAU).abs() < 1e-6 {
+						zero_steps(sides_int)?;
+					}
 					p.cylinder([0.0; 3], radius, height, &material, sides, [0.0; 3], radius_top, o.get("caps").map(String::as_str) != Some("0"), cap.as_deref(), arc);
 				}
 				p.pop();
@@ -1656,20 +1690,27 @@ impl Compiler {
 			"sph" => {
 				let radius = num(arg(a, 1)?)?;
 				let rings = py_int(num(o.get("rings").map(String::as_str).unwrap_or("6"))?)?;
+				zero_steps(rings)?;
 				let profile: Vec<[f64; 2]> = (0..=rings)
 					.map(|k| {
 						let angle = std::f64::consts::PI * k as f64 / rings as f64;
-						[radius * angle.sin(), -radius * angle.cos()]
+						[radius * angle.py_sin(), -radius * angle.py_cos()]
 					})
 					.collect();
 				let material = mat(arg(a, 2)?)?;
 				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or("10"))?)?;
 				let center = self.centre(arg(a, 0)?, env, [radius; 3])?;
+				zero_steps(sides)?;
 				p.lathe(&profile, &material, sides.max(0) as usize, center, [0.0, std::f64::consts::TAU], false, rotation);
 			}
 			"wedge" => {
 				let [w, d, h] = self.vec3(arg(a, 1)?, env)?;
-				let [cx, cy, cz] = self.centre(arg(a, 0)?, env, [w / 2.0, d / 2.0, h / 2.0])?;
+				let all = self.centre_all(arg(a, 0)?, env, [w / 2.0, d / 2.0, h / 2.0])?;
+				if all.len() != 3 {
+					let kind = if all.len() < 3 { format!("not enough values to unpack (expected 3, got {})", all.len()) } else { "too many values to unpack (expected 3)".into() };
+					return Err(kind.into());
+				}
+				let [cx, cy, cz] = [all[0], all[1], all[2]];
 				let material = mat(arg(a, 2)?)?;
 				p.push_at([cx, cy, cz], rotation);
 				let (x, y, z) = (w / 2.0, d / 2.0, h / 2.0);
@@ -1696,6 +1737,7 @@ impl Compiler {
 				let material = mat(arg(a, 1)?)?;
 				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or("16"))?)?;
 				let center = self.vec3(arg(a, 0)?, env)?;
+				zero_steps(sides)?;
 				p.lathe(&profile, &material, sides.max(0) as usize, center, arc, flag("cap"), rotation);
 			}
 			"pipe" | "sweep" => {
@@ -1705,7 +1747,7 @@ impl Compiler {
 					let profile: Vec<[f64; 2]> = (0..sides)
 						.map(|k| {
 							let angle = std::f64::consts::TAU * k as f64 / sides as f64;
-							[radius * angle.cos(), radius * angle.sin()]
+							[radius * angle.py_cos(), radius * angle.py_sin()]
 						})
 						.collect();
 					(profile, 2)
@@ -1755,12 +1797,13 @@ impl Compiler {
 					None => height - span / 2.0,
 				};
 				let steps = py_int(num(o.get("s").map(String::as_str).unwrap_or("12"))?)?;
+				zero_steps(steps)?;
 				let (hw, ho) = (width / 2.0, span / 2.0);
 				let (y0, y1) = (cy, cy + thick);
 				let arc: Vec<(f64, f64)> = (0..=steps)
 					.map(|k| {
 						let angle = std::f64::consts::PI * k as f64 / steps as f64;
-						(cx - ho * angle.cos(), cz + spring + ho * angle.sin())
+						(cx - ho * angle.py_cos(), cz + spring + ho * angle.py_sin())
 					})
 					.collect();
 				let top = cz + height;
@@ -1807,11 +1850,12 @@ impl Compiler {
 				let (span, depth, rise) = (num(arg(a, 1)?)?, num(arg(a, 2)?)?, num(arg(a, 3)?)?);
 				let material = mat(arg(a, 4)?)?;
 				let steps = py_int(num(o.get("s").map(String::as_str).unwrap_or("12"))?)?;
+				zero_steps(steps)?;
 				let (half, y0, y1) = (span / 2.0, cy - depth / 2.0, cy + depth / 2.0);
 				let ring: Vec<(f64, f64)> = (0..=steps)
 					.map(|k| {
 						let angle = std::f64::consts::PI * k as f64 / steps as f64;
-						(cx - half * angle.cos(), cz + rise * angle.sin())
+						(cx - half * angle.py_cos(), cz + rise * angle.py_sin())
 					})
 					.collect();
 				for w in ring.windows(2) {
@@ -1873,13 +1917,13 @@ impl Compiler {
 				let profile: Vec<[f64; 2]> = (0..rings)
 					.map(|k| {
 						let angle = std::f64::consts::TAU * k as f64 / rings as f64;
-						[thick * angle.cos(), thick * angle.sin()]
+						[thick * angle.py_cos(), thick * angle.py_sin()]
 					})
 					.collect();
 				let ring: Vec<V3> = (0..sides)
 					.map(|k| {
 						let angle = std::f64::consts::TAU * k as f64 / sides as f64;
-						[radius * angle.cos(), radius * angle.sin(), 0.0]
+						[radius * angle.py_cos(), radius * angle.py_sin(), 0.0]
 					})
 					.collect();
 				let axis = o.get("ax").map(String::as_str).unwrap_or("z");
@@ -1954,7 +1998,7 @@ impl Compiler {
 			Some(s) => Some(self.material(stmt, s, env, copy)?),
 			None => None,
 		};
-		let limit = evaluate(o.get("slope").map(String::as_str).unwrap_or("35"), env)?.to_radians().cos();
+		let limit = evaluate(o.get("slope").map(String::as_str).unwrap_or("35"), env)?.to_radians().py_cos();
 		let height = o.get("height").map(String::as_str).unwrap_or("0");
 		let mut corner_env = env.clone();
 		let mut grid: Vec<Vec<V3>> = Vec::new();
@@ -2050,6 +2094,7 @@ impl Compiler {
 		let material = mat(arg(a, 3)?)?;
 		if op == "cone" {
 			let sides = py_int(evaluate(o.get("s").map(String::as_str).unwrap_or("8"), env)?)?;
+			zero_steps(sides)?;
 			p.cone([0.0; 3], radius, length, &material, sides.max(0) as usize, [0.0; 3]);
 		} else {
 			let sides = py_int(evaluate(o.get("s").map(String::as_str).unwrap_or("10"), env)?)?;
@@ -2061,6 +2106,7 @@ impl Compiler {
 				Some(c) => Some(mat(c)?),
 				None => None,
 			};
+			zero_steps(sides)?;
 			p.cylinder([0.0; 3], radius, length, &material, sides.max(0) as usize, [0.0; 3], radius_top, o.get("caps").map(String::as_str) != Some("0"), cap.as_deref(),
 				[0.0, std::f64::consts::TAU]);
 		}
@@ -2214,7 +2260,7 @@ pub fn sign_spec(stmt: &Stmt, env: Option<&Env>) -> Result<Json, String> {
 		shape = "256x128";
 	} else if printed {
 		let aspect = match (stmt.args.get(1).and_then(|w| crate::expr::py_float(w)), stmt.args.get(2).and_then(|h| crate::expr::py_float(h))) {
-			(Some(w), Some(h)) => w / h.max(1e-6),
+			(Some(w), Some(h)) => w / py::max2(h, 1e-6),
 			_ => 2.0,
 		};
 		shape = if aspect >= 6.0 {
@@ -2317,9 +2363,9 @@ fn touch(faces: &mut [&mut Face], point: V3, normal: V3) {
 fn drop_onto(faces: &mut [&mut Face], ground: &mut SurfaceIndex, lean: bool, sink: f64) {
 	let points: Vec<V3> = faces.iter().flat_map(|f| f.points.iter().copied()).collect();
 	if !points.is_empty() {
-		let bottom = points.iter().map(|q| q[2]).fold(f64::INFINITY, f64::min);
-		let top = points.iter().map(|q| q[2]).fold(f64::NEG_INFINITY, f64::max);
-		let low: Vec<V3> = points.iter().copied().filter(|q| q[2] <= bottom + 0.02f64.max((top - bottom) * 0.1)).collect();
+		let bottom = py::min_iter(points.iter().map(|q| q[2])).unwrap_or(f64::INFINITY);
+		let top = py::max_iter(points.iter().map(|q| q[2])).unwrap_or(f64::NEG_INFINITY);
+		let low: Vec<V3> = points.iter().copied().filter(|q| q[2] <= bottom + py::max2(0.02, (top - bottom) * 0.1)).collect();
 		let cx = py::sum(low.iter().map(|q| q[0])) / low.len() as f64;
 		let cy = py::sum(low.iter().map(|q| q[1])) / low.len() as f64;
 		let mut samples: Vec<(f64, f64)> = Vec::new();
@@ -2336,14 +2382,14 @@ fn drop_onto(faces: &mut [&mut Face], ground: &mut SurfaceIndex, lean: bool, sin
 		if hits.is_empty() {
 			hits.push((0.0, [0.0, 0.0, 1.0]));
 		}
-		let rest = hits.iter().map(|h| h.0).fold(f64::NEG_INFINITY, f64::max) - sink;
+		let rest = py::max_iter(hits.iter().map(|h| h.0)).unwrap_or(f64::NEG_INFINITY) - sink;
 		let mut mv = M4::translation([0.0, 0.0, rest - bottom]);
 		let centre = ground.below(cx, cy, top);
 		if let (true, Some((_, n))) = (lean, centre) {
 			let axis = cross([0.0, 0.0, 1.0], n);
 			if length(axis) > 1e-6 {
 				let pivot = [cx, cy, rest];
-				let turn = M4::rotation_axis(n[2].clamp(-1.0, 1.0).acos(), normalized(axis));
+				let turn = M4::rotation_axis(py::max2(-1.0, py::min2(1.0, n[2])).acos(), normalized(axis));
 				mv = M4::translation(pivot).mul(&turn).mul(&M4::translation(pivot.map(|v| -v))).mul(&mv);
 			}
 		}
@@ -2404,10 +2450,11 @@ fn deform(faces: &mut [&mut Face], twist: f64, bend: (f64, f64), shrink: f64) {
 	if points.is_empty() {
 		return;
 	}
-	let fold = |k: usize, init: f64, f: fn(f64, f64) -> f64| points.iter().map(|p| p[k]).fold(init, f);
-	let (cx, cy) = ((fold(0, f64::INFINITY, f64::min) + fold(0, f64::NEG_INFINITY, f64::max)) / 2.0, (fold(1, f64::INFINITY, f64::min) + fold(1, f64::NEG_INFINITY, f64::max)) / 2.0);
-	let bottom = fold(2, f64::INFINITY, f64::min);
-	let height = (fold(2, f64::NEG_INFINITY, f64::max) - bottom).max(1e-6);
+	let low = |k: usize| py::min_iter(points.iter().map(|p| p[k])).unwrap();
+	let high = |k: usize| py::max_iter(points.iter().map(|p| p[k])).unwrap();
+	let (cx, cy) = ((low(0) + high(0)) / 2.0, (low(1) + high(1)) / 2.0);
+	let bottom = low(2);
+	let height = py::max2(high(2) - bottom, 1e-6);
 	let (angle, heading) = (bend.0.to_radians(), bend.1.to_radians());
 	let radius = if angle.abs() > 1e-9 { Some(height / angle) } else { None };
 	let mut moved: HashMap<[u64; 3], V3> = HashMap::new();
@@ -2420,17 +2467,17 @@ fn deform(faces: &mut [&mut Face], twist: f64, bend: (f64, f64), shrink: f64) {
 				let (mut x, mut y, mut z) = (p[0] - cx, p[1] - cy, p[2]);
 				if twist != 0.0 {
 					let a = (twist * t).to_radians();
-					(x, y) = (x * a.cos() - y * a.sin(), x * a.sin() + y * a.cos());
+					(x, y) = (x * a.py_cos() - y * a.py_sin(), x * a.py_sin() + y * a.py_cos());
 				}
 				if shrink != 1.0 {
 					let k = 1.0 + (shrink - 1.0) * t;
 					(x, y) = (x * k, y * k);
 				}
 				if let Some(radius) = radius {
-					let (u, mut v) = (x * (-heading).cos() - y * (-heading).sin(), x * (-heading).sin() + y * (-heading).cos());
+					let (u, mut v) = (x * (-heading).py_cos() - y * (-heading).py_sin(), x * (-heading).py_sin() + y * (-heading).py_cos());
 					let theta = angle * t;
-					(v, z) = (radius - (radius - v) * theta.cos(), bottom + (radius - v) * theta.sin());
-					(x, y) = (u * heading.cos() - v * heading.sin(), u * heading.sin() + v * heading.cos());
+					(v, z) = (radius - (radius - v) * theta.py_cos(), bottom + (radius - v) * theta.py_sin());
+					(x, y) = (u * heading.py_cos() - v * heading.py_sin(), u * heading.py_sin() + v * heading.py_cos());
 				}
 				[x + cx, y + cy, z]
 			});
@@ -2466,8 +2513,8 @@ fn fade(faces: &mut [&mut Face], low: f64) {
 	if zs.is_empty() {
 		return;
 	}
-	let bottom = zs.iter().copied().fold(f64::INFINITY, f64::min);
-	let span = (zs.iter().copied().fold(f64::NEG_INFINITY, f64::max) - bottom).max(1e-6);
+	let bottom = py::min_iter(zs.iter().copied()).unwrap_or(f64::INFINITY);
+	let span = py::max2(py::max_iter(zs.iter().copied()).unwrap_or(f64::NEG_INFINITY) - bottom, 1e-6);
 	for f in faces.iter_mut() {
 		let shades = match &f.corner_shade {
 			Some(s) if s.len() == f.points.len() => s.clone(),
@@ -2515,13 +2562,13 @@ pub fn finish_parts(prop: &Prop, parts: &mut [Part]) {
 	}
 	let mut size = [0.0; 3];
 	for (k, s) in size.iter_mut().enumerate() {
-		let hi = live.iter().map(|&i| parts[i].bounds().1[k]).fold(f64::NEG_INFINITY, f64::max);
-		let lo = live.iter().map(|&i| parts[i].bounds().0[k]).fold(f64::INFINITY, f64::min);
+		let hi = py::max_iter(live.iter().map(|&i| parts[i].bounds().1[k])).unwrap_or(f64::NEG_INFINITY);
+		let lo = py::min_iter(live.iter().map(|&i| parts[i].bounds().0[k])).unwrap_or(f64::INFINITY);
 		*s = hi - lo;
 	}
 	if !px.is_empty() {
 		let density = if px == "auto" {
-			32.0f64.max(256.0f64.min(80.0 / size[0].max(size[1]).max(size[2]).max(0.001)))
+			py::max2(32.0, py::min2(256.0, 80.0 / py::max2(py::max2(py::max2(size[0], size[1]), size[2]), 0.001)))
 		} else {
 			crate::expr::py_float(px).unwrap_or(32.0)
 		};
@@ -2531,7 +2578,7 @@ pub fn finish_parts(prop: &Prop, parts: &mut [Part]) {
 	}
 	if ao == "auto" {
 		for &i in &live {
-			parts[i].ao_height = Some(0.15f64.max(1.4f64.min(size[2] * 1.2)));
+			parts[i].ao_height = Some(py::max2(0.15, py::min2(1.4, size[2] * 1.2)));
 		}
 	}
 }

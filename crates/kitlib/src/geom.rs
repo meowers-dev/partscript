@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::py::PyMath;
 use crate::maths::{self, add, cross, dot, euler, length, normalized, scale, sub, M4, V3};
 use crate::py;
 
@@ -234,9 +235,9 @@ impl Part {
 		let half = [size[0] * 0.5, size[1] * 0.5, size[2] * 0.5];
 		let mut b = bevel;
 		for h in half {
-			b = b.min(h * 0.9);
+			b = py::min2(b, h * 0.9);
 		}
-		let b = if b > 0.0 { b } else { 0.0f64.max(b) };
+		let b = py::max2(0.0, b);
 		if b == 0.0 {
 			self.box_(center, size, material, rotation, &[], 1.0, taper, lean);
 			return;
@@ -328,17 +329,17 @@ impl Part {
 		for i in 0..steps {
 			let (a0, a1) = (angles[i], angles[i + 1]);
 			let p = [
-				[radius * a0.cos(), radius * a0.sin(), -h], [radius * a1.cos(), radius * a1.sin(), -h],
-				[rt * a1.cos(), rt * a1.sin(), h], [rt * a0.cos(), rt * a0.sin(), h],
+				[radius * a0.py_cos(), radius * a0.py_sin(), -h], [radius * a1.py_cos(), radius * a1.py_sin(), -h],
+				[rt * a1.py_cos(), rt * a1.py_sin(), h], [rt * a0.py_cos(), rt * a0.py_sin(), h],
 			];
 			let (u0, u1) = (i as f64 / steps as f64, (i + 1) as f64 / steps as f64);
-			let circumference = radius.max(rt) * (arc[1] - arc[0]);
+			let circumference = py::max2(radius, rt) * (arc[1] - arc[0]);
 			let uv = cyl_uv(u0, u1, circumference, height, tiles);
 			self.face(&p, material, FaceSpec { uv: Some(uv), tiled: true, ..Default::default() });
 		}
 		if caps && full {
-			let top: Vec<V3> = angles[..angles.len() - 1].iter().map(|a| [rt * a.cos(), rt * a.sin(), h]).collect();
-			let bottom: Vec<V3> = angles[..angles.len() - 1].iter().rev().map(|a| [radius * a.cos(), radius * a.sin(), -h]).collect();
+			let top: Vec<V3> = angles[..angles.len() - 1].iter().map(|a| [rt * a.py_cos(), rt * a.py_sin(), h]).collect();
+			let bottom: Vec<V3> = angles[..angles.len() - 1].iter().rev().map(|a| [radius * a.py_cos(), radius * a.py_sin(), -h]).collect();
 			let cap = cap_material.unwrap_or(material);
 			if rt > 0.0005 {
 				self.plain(&top, cap);
@@ -362,8 +363,8 @@ impl Part {
 			let a0 = std::f64::consts::TAU * index as f64 / sides as f64;
 			let a1 = std::f64::consts::TAU * (index + 1) as f64 / sides as f64;
 			let points = [
-				[radius * a0.cos(), radius * a0.sin(), -h], [radius * a1.cos(), radius * a1.sin(), -h],
-				[radius * a1.cos(), radius * a1.sin(), h], [radius * a0.cos(), radius * a0.sin(), h],
+				[radius * a0.py_cos(), radius * a0.py_sin(), -h], [radius * a1.py_cos(), radius * a1.py_sin(), -h],
+				[radius * a1.py_cos(), radius * a1.py_sin(), h], [radius * a0.py_cos(), radius * a0.py_sin(), h],
 			];
 			let (u0, u1) = (index as f64 / sides as f64 + u_offset, (index + 1) as f64 / sides as f64 + u_offset);
 			self.face(&points, material, FaceSpec { uv: Some(vec![[u0, 0.0], [u1, 0.0], [u1, 1.0], [u0, 1.0]]), ..Default::default() });
@@ -406,8 +407,8 @@ impl Part {
 			return Err("the outline crosses itself".into());
 		}
 		let triangles = ear_clip(&points)?;
-		let low = points.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min);
-		let high = points.iter().map(|p| p[1]).fold(f64::NEG_INFINITY, f64::max);
+		let low = py::min_iter(points.iter().map(|p| p[1])).unwrap_or(f64::INFINITY);
+		let high = py::max_iter(points.iter().map(|p| p[1])).unwrap_or(f64::NEG_INFINITY);
 		let place = |point: [f64; 2], side: f64| -> V3 {
 			let [u, v] = point;
 			let t = if high > low { (v - low) / (high - low) } else { 0.0 };
@@ -460,10 +461,10 @@ impl Part {
 			for i in 0..sides {
 				let (a0, a1) = (angles[i], angles[i + 1]);
 				let p = [
-					[r0 * a0.cos(), r0 * a0.sin(), z0], [r0 * a1.cos(), r0 * a1.sin(), z0],
-					[r1 * a1.cos(), r1 * a1.sin(), z1], [r1 * a0.cos(), r1 * a0.sin(), z1],
+					[r0 * a0.py_cos(), r0 * a0.py_sin(), z0], [r0 * a1.py_cos(), r0 * a1.py_sin(), z0],
+					[r1 * a1.py_cos(), r1 * a1.py_sin(), z1], [r1 * a0.py_cos(), r1 * a0.py_sin(), z1],
 				];
-				let circ = r0.max(r1).max(0.01) * (arc[1] - arc[0]);
+				let circ = py::max2(py::max2(r0, r1), 0.01) * (arc[1] - arc[0]);
 				let u0 = i as f64 / sides as f64 * circ / tile;
 				let u1 = (i + 1) as f64 / sides as f64 * circ / tile;
 				let v0 = lengths[j] / tile_v;
@@ -474,7 +475,7 @@ impl Part {
 		if cap && full {
 			let [r, z] = profile[profile.len() - 1];
 			if r > 0.001 {
-				let points: Vec<V3> = angles[..angles.len() - 1].iter().map(|a| [r * a.cos(), r * a.sin(), z]).collect();
+				let points: Vec<V3> = angles[..angles.len() - 1].iter().map(|a| [r * a.py_cos(), r * a.py_sin(), z]).collect();
 				self.plain(&points, material);
 			}
 		}
@@ -602,17 +603,21 @@ impl Part {
 }
 
 pub fn bounds_of<'a>(faces: impl Iterator<Item = &'a Face>) -> (V3, V3) {
+	// min() and max() per axis as Python takes them: from the first point, so a NaN first stays
 	let mut lo = [f64::INFINITY; 3];
 	let mut hi = [f64::NEG_INFINITY; 3];
+	let mut first = true;
 	for f in faces {
 		for p in &f.points {
+			if first {
+				lo = *p;
+				hi = *p;
+				first = false;
+				continue;
+			}
 			for k in 0..3 {
-				if p[k] < lo[k] {
-					lo[k] = p[k];
-				}
-				if p[k] > hi[k] {
-					hi[k] = p[k];
-				}
+				lo[k] = py::min2(lo[k], p[k]);
+				hi[k] = py::max2(hi[k], p[k]);
 			}
 		}
 	}
@@ -687,7 +692,7 @@ fn ear_clip(points: &[[f64; 2]]) -> Result<Vec<[usize; 3]>, String> {
 
 /// smoothstep from a to b.
 pub fn smooth(a: f64, b: f64, x: f64) -> f64 {
-	let t = ((x - a) / (b - a).max(1e-6)).clamp(0.0, 1.0);
+	let t = py::max2(0.0, py::min2(1.0, (x - a) / py::max2(b - a, 1e-6)));
 	t * t * (3.0 - 2.0 * t)
 }
 

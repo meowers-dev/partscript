@@ -94,10 +94,16 @@ pub fn bake(part: &Part, ao_height: f64, face_steps: Option<&[i64]>) -> Baked {
 			let bits = [key[0].to_bits(), key[1].to_bits(), key[2].to_bits()];
 			// -0.0 and 0.0 are one key, as Python's tuple equality has it
 			let bits = bits.map(|b| if b == (-0.0f64).to_bits() { 0 } else { b });
-			let id = *index.entry(bits).or_insert_with(|| {
+			// a NaN is equal to nothing, itself included: such a corner is always a vertex of its own
+			let id = if key.iter().any(|v| v.is_nan()) {
 				verts.push(key);
 				verts.len() - 1
-			});
+			} else {
+				*index.entry(bits).or_insert_with(|| {
+					verts.push(key);
+					verts.len() - 1
+				})
+			};
 			if ids.last() != Some(&id) {
 				ids.push(id);
 			}
@@ -127,7 +133,7 @@ pub fn bake(part: &Part, ao_height: f64, face_steps: Option<&[i64]>) -> Baked {
 			material_names.insert(0, m);
 		}
 	}
-	let zmin = if verts.is_empty() { 0.0 } else { verts.iter().map(|v| v[2]).fold(f64::INFINITY, f64::min) };
+	let zmin = py::min_iter(verts.iter().map(|v| v[2])).unwrap_or(0.0);
 	let ao_height = part.ao_height.unwrap_or(ao_height);
 	let mut rng = PyRandom::from_int(crc32(part.name.as_bytes()) as i128);
 	let mut tones: HashMap<u64, f64> = HashMap::new();
@@ -161,8 +167,8 @@ pub fn bake(part: &Part, ao_height: f64, face_steps: Option<&[i64]>) -> Baked {
 					return 1.0;
 				}
 				let ground = if ao_height > 0.0 { 0.62 + 0.38 * smooth(0.0, ao_height, co[2] - zmin) } else { 1.0 };
-				let facing = if normal[2] > -0.5 { 0.86 + 0.14 * normal[2].max(0.0) } else { 0.74 };
-				(ground * facing * tone * corner).clamp(0.0, 1.0)
+				let facing = if normal[2] > -0.5 { 0.86 + 0.14 * py::max2(0.0, normal[2]) } else { 0.74 };
+				py::max2(0.0, py::min2(1.0, ground * facing * tone * corner))
 			})
 			.collect();
 		let tris = triangles(&coords);
@@ -181,7 +187,7 @@ pub fn smooth_normals(polygons: &[Polygon]) -> HashMap<usize, V3> {
 		for (k, &vertex) in ids.iter().enumerate() {
 			let a = crate::maths::normalized(sub(coords[(k + n - 1) % n], coords[k]));
 			let b = crate::maths::normalized(sub(coords[(k + 1) % n], coords[k]));
-			let angle = dot(a, b).clamp(-1.0, 1.0).acos();
+			let angle = py::max2(-1.0, py::min2(1.0, dot(a, b))).acos();
 			let entry = totals.entry(vertex).or_insert([0.0; 3]);
 			*entry = crate::maths::add(*entry, scale(polygon.normal, angle));
 		}

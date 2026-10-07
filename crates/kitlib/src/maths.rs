@@ -4,6 +4,7 @@
 //! The arithmetic follows the Python original operation for operation (including where it summed with
 //! Python's compensated sum()), so results agree to the last bit.
 
+use crate::py::PyMath;
 use crate::py;
 
 pub type V3 = [f64; 3];
@@ -206,7 +207,7 @@ impl M3 {
 	}
 
 	pub fn rotation_named(angle: f64, axis: char) -> M3 {
-		let (c, s) = (angle.cos(), angle.sin());
+		let (c, s) = (angle.py_cos(), angle.py_sin());
 		match axis.to_ascii_uppercase() {
 			'X' => M3([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]]),
 			'Y' => M3([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]]),
@@ -215,7 +216,7 @@ impl M3 {
 	}
 
 	pub fn rotation_axis(angle: f64, axis: V3) -> M3 {
-		let (c, s) = (angle.cos(), angle.sin());
+		let (c, s) = (angle.py_cos(), angle.py_sin());
 		let [x, y, z] = normalized(axis);
 		let ico = 1.0 - c;
 		let (sx, sy, sz) = (x * s, y * s, z * s);
@@ -258,8 +259,8 @@ impl M3 {
 
 /// Euler((x, y, z), "XYZ").to_matrix(): radians.
 pub fn euler(angles: V3) -> M3 {
-	let (ci, cj, ch) = (angles[0].cos(), angles[1].cos(), angles[2].cos());
-	let (si, sj, sh) = (angles[0].sin(), angles[1].sin(), angles[2].sin());
+	let (ci, cj, ch) = (angles[0].py_cos(), angles[1].py_cos(), angles[2].py_cos());
+	let (si, sj, sh) = (angles[0].py_sin(), angles[1].py_sin(), angles[2].py_sin());
 	let (cc, cs, sc, ss) = (ci * ch, ci * sh, si * ch, si * sh);
 	M3([[cj * ch, sj * sc - cs, sj * cc + ss], [cj * sh, sj * ss + cc, sj * cs - sc], [-sj, cj * si, cj * ci]])
 }

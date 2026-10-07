@@ -8,6 +8,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use kitlib::py::PyMath;
 use kitlib::json::Json;
 use kitlib::py;
 
@@ -112,7 +113,7 @@ fn mat_vector(m: &M, v: V) -> V {
 
 /// Translation then a turn of degrees about +Z.
 pub fn mat_place(position: V, degrees: f64) -> M {
-	let (c, s) = (degrees.to_radians().cos(), degrees.to_radians().sin());
+	let (c, s) = (degrees.to_radians().py_cos(), degrees.to_radians().py_sin());
 	let (c, s) = (py::round_to(c, 12), py::round_to(s, 12));
 	[[c, -s, 0.0, position[0]], [s, c, 0.0, position[1]], [0.0, 0.0, 1.0, position[2]], [0.0, 0.0, 0.0, 1.0]]
 }
@@ -125,7 +126,7 @@ fn mat_rotation(columns: (V, V, V)) -> M {
 /// Rotation by degrees about a unit axis through the origin (Rodrigues).
 fn mat_axis_turn(axis: V, degrees: f64) -> Result<M, String> {
 	let [x, y, z] = unit(axis)?;
-	let (c, s) = (degrees.to_radians().cos(), degrees.to_radians().sin());
+	let (c, s) = (degrees.to_radians().py_cos(), degrees.to_radians().py_sin());
 	let t = 1.0 - c;
 	Ok([
 		[t * x * x + c, t * x * y - s * z, t * x * z + s * y, 0.0],
@@ -1321,8 +1322,8 @@ pub fn yup_rotation(m: &M) -> (String, Json) {
 	let r: [[f64; 3]; 3] = [0, 1, 2].map(|i| [0, 1, 2].map(|j| m[i][j]));
 	let cr: [[f64; 3]; 3] = [0, 1, 2].map(|i| [0, 1, 2].map(|j| py::sum((0..3).map(|k| c[i][k] * r[k][j]))));
 	let gm: [[f64; 3]; 3] = [0, 1, 2].map(|i| [0, 1, 2].map(|j| py::sum((0..3).map(|k| cr[i][k] * c[j][k]))));
-	let x = (-gm[1][2]).clamp(-1.0, 1.0).asin();
-	let (y, z) = if x.cos().abs() > 1e-6 { (gm[0][2].atan2(gm[2][2]), gm[1][0].atan2(gm[1][1])) } else { ((-gm[2][0]).atan2(gm[0][0]), 0.0) };
+	let x = py::max2(-1.0, py::min2(1.0, -gm[1][2])).asin();
+	let (y, z) = if x.py_cos().abs() > 1e-6 { (gm[0][2].atan2(gm[2][2]), gm[1][0].atan2(gm[1][1])) } else { ((-gm[2][0]).atan2(gm[0][0]), 0.0) };
 	("rotation".into(), Json::List(vec![Json::Float(py::round_to(x, 6)), Json::Float(py::round_to(y, 6)), Json::Float(py::round_to(z, 6))]))
 }
 

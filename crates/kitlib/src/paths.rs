@@ -83,7 +83,7 @@ pub fn path_frames(points: &[Vec<f64>], every: f64, fit: bool, corners: bool, cl
 		let mut walked = distance;
 		for (k, (((a, b), &length), &yaw)) in segments.iter().zip(&lengths).zip(&headings).enumerate() {
 			if walked <= length + 1e-9 || k == segments.len() - 1 {
-				let t = if length != 0.0 { (walked / length).min(1.0) } else { 0.0 };
+				let t = if length != 0.0 { py::min2(1.0, walked / length) } else { 0.0 };
 				out.push(Frame { pos: lerp(*a, *b, t), yaw, stretch: 1.0, segment: k });
 				break;
 			}

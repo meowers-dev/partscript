@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use crate::py;
 use crate::bake::{smooth_normals, Baked};
 use crate::geom::Mat;
 use crate::hash::crc32;
@@ -22,7 +23,7 @@ const NEAREST_MIPMAP_NEAREST: i64 = 9984;
 
 /// A baked tone as Blender's exporter writes it: 8-bit sRGB held back in linear at 16 bits.
 pub fn colour_word(value: f64) -> u16 {
-	let value = value.clamp(0.0, 1.0);
+	let value = py::max2(0.0, py::min2(1.0, value));
 	let encoded = if value <= 0.0031308 { 12.92 * value } else { 1.055 * value.powf(1.0 / 2.4) - 0.055 };
 	let stored = ((255.0 * encoded + 0.5) as i64) as f64 / 255.0;
 	let linear = if stored <= 0.04045 { stored / 12.92 } else { ((stored + 0.055) / 1.055).powf(2.4) };
@@ -37,7 +38,7 @@ fn emission(spec: &Mat) -> Option<(Vec<f64>, Option<f64>)> {
 	} else {
 		return None;
 	};
-	let peak = factor.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+	let peak = py::max_iter(factor.iter().copied()).unwrap_or(f64::NEG_INFINITY);
 	if peak > 1.0 {
 		Some((factor.iter().map(|c| c / peak).collect(), Some(peak)))
 	} else {
@@ -100,14 +101,8 @@ impl Glb<'_> {
 		}
 		if bounds && count > 0 {
 			if let Values::F32(v) = &values {
-				let mut lo = vec![f64::INFINITY; width];
-				let mut hi = vec![f64::NEG_INFINITY; width];
-				for item in v.chunks(width) {
-					for k in 0..width {
-						lo[k] = lo[k].min(item[k]);
-						hi[k] = hi[k].max(item[k]);
-					}
-				}
+				let lo: Vec<f64> = (0..width).map(|k| py::min_iter(v.chunks(width).map(|item| item[k])).unwrap()).collect();
+				let hi: Vec<f64> = (0..width).map(|k| py::max_iter(v.chunks(width).map(|item| item[k])).unwrap()).collect();
 				entry.set("min", Json::List(lo.iter().map(|x| Json::Float(*x as f32 as f64)).collect()));
 				entry.set("max", Json::List(hi.iter().map(|x| Json::Float(*x as f32 as f64)).collect()));
 			}

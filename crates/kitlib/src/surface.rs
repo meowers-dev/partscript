@@ -46,8 +46,8 @@ impl SurfaceIndex {
 			if n[2] < 0.15 || area <= 0.0 {
 				continue;
 			}
-			let (x0, x1) = (a[0].min(b[0]).min(c[0]), a[0].max(b[0]).max(c[0]));
-			let (y0, y1) = (a[1].min(b[1]).min(c[1]), a[1].max(b[1]).max(c[1]));
+			let (x0, x1) = (py::min2(py::min2(a[0], b[0]), c[0]), py::max2(py::max2(a[0], b[0]), c[0]));
+			let (y0, y1) = (py::min2(py::min2(a[1], b[1]), c[1]), py::max2(py::max2(a[1], b[1]), c[1]));
 			let tri = (a, b, c, n);
 			for i in (x0 / self.cell).floor() as i64..=(x1 / self.cell).floor() as i64 {
 				for j in (y0 / self.cell).floor() as i64..=(y1 / self.cell).floor() as i64 {
@@ -69,7 +69,7 @@ impl SurfaceIndex {
 				let l1 = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (y - c[1])) / d;
 				let l2 = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (y - c[1])) / d;
 				let l3 = 1.0 - l1 - l2;
-				if l1.min(l2).min(l3) < -1e-6 {
+				if py::min2(py::min2(l1, l2), l3) < -1e-6 {
 					continue;
 				}
 				out.push((l1 * a[2] + l2 * b[2] + l3 * c[2], *n));
