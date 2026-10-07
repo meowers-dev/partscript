@@ -1414,8 +1414,9 @@ pub fn every_material(token: &str, env: &Env) -> Vec<String> {
 
 /// A use/def argument: a number when it evaluates, else the text (a material, a word) or what it names.
 pub fn arg_value(value: &str, env: &Env) -> Value {
-	match evaluate(value, env) {
-		Ok(v) => Value::Num(v),
+	match crate::expr::evaluate_number(value, env) {
+		Ok(crate::expr::Num::F(v)) => Value::Num(v),
+		Ok(crate::expr::Num::C(re, im)) => Value::Complex(re, im),
 		Err(_) => env.get(value).cloned().unwrap_or_else(|| Value::str(value)),
 	}
 }

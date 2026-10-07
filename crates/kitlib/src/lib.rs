@@ -10,6 +10,7 @@ pub mod paths;
 pub mod py;
 pub mod ruin;
 pub mod surface;
+pub mod unicode;
 pub mod json;
 
 /// The bytes of a gzip file (one member, as Python's gzip.compress writes it).

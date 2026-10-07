@@ -1,11 +1,13 @@
 //! Python's number behaviour, where PartScript's results depend on it: the random module's Mersenne
 //! Twister (seeded from strings and integers as Python seeds it), float repr and `:g` formatting,
-//! round() to n digits, `%` and `//`, the compensated float sum() and math.hypot / math.dist.
+//! round() to n digits, `%` and `//`, the compensated float sum() and math.hypot / math.dist, and the
+//! order a set of integer tuples iterates in.
 //!
 //! PartScript began in Python; these keep every random deal and every rounded key the same, so a
 //! file builds the same model it always did.
 
 use crate::hash::sha512;
+use crate::unicode;
 
 // ------------------------------------------------------------------ random.Random
 const N: usize = 624;
@@ -294,8 +296,12 @@ fn ldexp_one(e: i32) -> f64 {
 	// 2**e for the range vector_norm uses.
 	if (-1022..=1023).contains(&e) {
 		f64::from_bits(((e + 1023) as u64) << 52)
+	} else if (-1074..-1022).contains(&e) {
+		f64::from_bits(1u64 << (e + 1074)) // subnormal
+	} else if e < -1074 {
+		0.0
 	} else {
-		2f64.powi(e)
+		f64::INFINITY
 	}
 }
 
@@ -487,11 +493,371 @@ pub fn repr_str(text: &str) -> String {
 				out.push(c);
 			}
 			c if (c as u32) < 0x20 || c as u32 == 0x7f => out.push_str(&format!("\\x{:02x}", c as u32)),
-			c => out.push(c),
+			c if (c as u32) < 0x7f || is_printable(c) => out.push(c),
+			c if (c as u32) <= 0xff => out.push_str(&format!("\\x{:02x}", c as u32)),
+			c if (c as u32) <= 0xffff => out.push_str(&format!("\\u{:04x}", c as u32)),
+			c => out.push_str(&format!("\\U{:08x}", c as u32)),
 		}
 	}
 	out.push(quote);
 	out
+}
+
+// ------------------------------------------------------------------ Unicode, as Python sees it
+
+fn in_ranges(table: &[(u32, u32)], c: char) -> bool {
+	let c = c as u32;
+	table.binary_search_by(|&(lo, hi)| if hi < c { std::cmp::Ordering::Less } else if lo > c { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Equal }).is_ok()
+}
+
+/// str.isprintable() for one character (repr() prints it as it is).
+pub fn is_printable(c: char) -> bool {
+	in_ranges(&unicode::PRINTABLE, c)
+}
+
+/// str.isspace() for one character.
+pub fn is_space(c: char) -> bool {
+	in_ranges(&unicode::SPACE, c)
+}
+
+/// str.strip().
+pub fn strip(text: &str) -> &str {
+	text.trim_matches(is_space)
+}
+
+/// A name may start with this character (Unicode XID_Start, or _).
+pub fn is_name_start(c: char) -> bool {
+	in_ranges(&unicode::XID_START, c)
+}
+
+/// A name may go on with this character (XID_Continue).
+pub fn is_name_continue(c: char) -> bool {
+	in_ranges(&unicode::XID_CONTINUE, c)
+}
+
+/// The value of a Unicode decimal digit (what int() and float() read as 0-9).
+pub fn decimal(c: char) -> Option<u8> {
+	let c = c as u32;
+	let k = unicode::DIGITS.partition_point(|&(_, hi, _)| hi < c);
+	unicode::DIGITS.get(k).filter(|&&(lo, _, _)| lo <= c).map(|&(lo, _, first)| first + (c - lo) as u8)
+}
+
+fn combining(c: u32) -> u8 {
+	unicode::COMBINING.binary_search_by_key(&c, |&(k, _)| k).map(|i| unicode::COMBINING[i].1).unwrap_or(0)
+}
+
+const HANGUL_S: u32 = 0xAC00;
+const HANGUL_L: u32 = 0x1100;
+const HANGUL_V: u32 = 0x1161;
+const HANGUL_T: u32 = 0x11A7;
+const HANGUL_V_COUNT: u32 = 21;
+const HANGUL_T_COUNT: u32 = 28;
+const HANGUL_N: u32 = HANGUL_V_COUNT * HANGUL_T_COUNT;
+const HANGUL_COUNT: u32 = 11172;
+
+/// unicodedata.normalize("NFKC", text): Python's form for names.
+pub fn nfkc(text: &str) -> String {
+	if text.is_ascii() {
+		return text.to_string();
+	}
+	// Decompose fully (compatibility mappings, Hangul worked out), then order marks by combining class.
+	let mut chars: Vec<u32> = Vec::with_capacity(text.len());
+	for ch in text.chars() {
+		let c = ch as u32;
+		if (HANGUL_S..HANGUL_S + HANGUL_COUNT).contains(&c) {
+			let s = c - HANGUL_S;
+			chars.push(HANGUL_L + s / HANGUL_N);
+			chars.push(HANGUL_V + (s % HANGUL_N) / HANGUL_T_COUNT);
+			if s % HANGUL_T_COUNT != 0 {
+				chars.push(HANGUL_T + s % HANGUL_T_COUNT);
+			}
+		} else if let Ok(i) = unicode::DECOMPOSE.binary_search_by_key(&c, |&(k, _, _)| k) {
+			let (_, start, len) = unicode::DECOMPOSE[i];
+			chars.extend_from_slice(&unicode::DECOMPOSED[start as usize..start as usize + len as usize]);
+		} else {
+			chars.push(c);
+		}
+	}
+	let mut i = 0;
+	while i < chars.len() {
+		if combining(chars[i]) == 0 {
+			i += 1;
+			continue;
+		}
+		let start = i;
+		while i < chars.len() && combining(chars[i]) != 0 {
+			i += 1;
+		}
+		chars[start..i].sort_by_key(|&c| combining(c));
+	}
+	// Compose canonically.
+	let compose = |a: u32, b: u32| -> Option<u32> {
+		if (HANGUL_L..HANGUL_L + 19).contains(&a) && (HANGUL_V..HANGUL_V + HANGUL_V_COUNT).contains(&b) {
+			return Some(HANGUL_S + ((a - HANGUL_L) * HANGUL_V_COUNT + (b - HANGUL_V)) * HANGUL_T_COUNT);
+		}
+		if (HANGUL_S..HANGUL_S + HANGUL_COUNT).contains(&a) && (a - HANGUL_S) % HANGUL_T_COUNT == 0 && (HANGUL_T + 1..HANGUL_T + HANGUL_T_COUNT).contains(&b) {
+			return Some(a + (b - HANGUL_T));
+		}
+		unicode::COMPOSE.binary_search_by(|&(x, y, _)| (x, y).cmp(&(a, b))).ok().map(|i| unicode::COMPOSE[i].2)
+	};
+	let mut out: Vec<u32> = Vec::with_capacity(chars.len());
+	let mut starter: Option<usize> = None;
+	let mut last_class: i32 = -1;
+	for &c in &chars {
+		let class = combining(c) as i32;
+		if let Some(s) = starter {
+			let blocked = last_class != -1 && (last_class >= class || last_class == 0);
+			if !blocked || (last_class == -1 && class == 0) {
+				if let Some(composed) = compose(out[s], c) {
+					out[s] = composed;
+					continue;
+				}
+			}
+		}
+		if class == 0 {
+			starter = Some(out.len());
+			last_class = -1;
+		} else {
+			last_class = class;
+		}
+		out.push(c);
+	}
+	out.into_iter().filter_map(char::from_u32).collect()
+}
+
+// ------------------------------------------------------------------ set iteration order
+
+/// hash() of a value made of integers, as CPython (3.8 and later, 64-bit) computes it.
+pub trait PyHash {
+	fn py_hash(&self) -> u64;
+}
+
+impl PyHash for i64 {
+	fn py_hash(&self) -> u64 {
+		const MODULUS: i64 = (1 << 61) - 1;
+		let h = if *self >= 0 { self % MODULUS } else { -((-self) % MODULUS) };
+		(if h == -1 { -2 } else { h }) as u64
+	}
+}
+
+fn tuple_hash(lanes: &[u64]) -> u64 {
+	const P1: u64 = 11400714785074694791;
+	const P2: u64 = 14029467366897019727;
+	const P5: u64 = 2870177450012600261;
+	let mut acc = P5;
+	for &lane in lanes {
+		acc = acc.wrapping_add(lane.wrapping_mul(P2)).rotate_left(31).wrapping_mul(P1);
+	}
+	acc = acc.wrapping_add(lanes.len() as u64 ^ (P5 ^ 3527539));
+	if acc == u64::MAX {
+		1546275796
+	} else {
+		acc
+	}
+}
+
+impl PyHash for (i64, i64) {
+	fn py_hash(&self) -> u64 {
+		tuple_hash(&[self.0.py_hash(), self.1.py_hash()])
+	}
+}
+
+impl PyHash for (i64, i64, i64) {
+	fn py_hash(&self) -> u64 {
+		tuple_hash(&[self.0.py_hash(), self.1.py_hash(), self.2.py_hash()])
+	}
+}
+
+#[derive(Clone)]
+enum Slot<K> {
+	Empty,
+	Dummy,
+	Full(K, u64),
+}
+
+/// A Python set, as far as the order it iterates in: CPython's open-addressed table (linear probes, then
+/// perturbed jumps, resized at 3/5 full), so iterating gives the elements in the order Python's set would.
+#[derive(Clone)]
+pub struct PySet<K> {
+	table: Vec<Slot<K>>,
+	fill: usize,
+	used: usize,
+}
+
+const LINEAR_PROBES: usize = 9;
+
+impl<K: PyHash + Eq + Clone> Default for PySet<K> {
+	fn default() -> Self {
+		PySet { table: vec![Slot::Empty; 8], fill: 0, used: 0 }
+	}
+}
+
+impl<K: PyHash + Eq + Clone> FromIterator<K> for PySet<K> {
+	fn from_iter<I: IntoIterator<Item = K>>(items: I) -> Self {
+		let mut set = PySet::default();
+		for item in items {
+			set.add(item);
+		}
+		set
+	}
+}
+
+impl<K: PyHash + Eq + Clone> PySet<K> {
+	fn mask(&self) -> usize {
+		self.table.len() - 1
+	}
+
+	fn insert_clean(table: &mut [Slot<K>], key: K, hash: u64) {
+		let mask = table.len() - 1;
+		let (mut perturb, mut i) = (hash, hash as usize & mask);
+		loop {
+			if i + LINEAR_PROBES <= mask {
+				if let Some(j) = (i..=i + LINEAR_PROBES).find(|&j| matches!(table[j], Slot::Empty)) {
+					table[j] = Slot::Full(key, hash);
+					return;
+				}
+			} else if matches!(table[i], Slot::Empty) {
+				table[i] = Slot::Full(key, hash);
+				return;
+			}
+			perturb >>= 5;
+			i = (i.wrapping_mul(5).wrapping_add(1).wrapping_add(perturb as usize)) & mask;
+		}
+	}
+
+	fn resize(&mut self, minused: usize) {
+		let mut size = 8;
+		while size <= minused {
+			size <<= 1;
+		}
+		let old = std::mem::replace(&mut self.table, vec![Slot::Empty; size]);
+		self.fill = self.used;
+		for slot in old {
+			if let Slot::Full(key, hash) = slot {
+				Self::insert_clean(&mut self.table, key, hash);
+			}
+		}
+	}
+
+	/// The slot holding key, if any.
+	fn find(&self, key: &K, hash: u64) -> Option<usize> {
+		let mask = self.mask();
+		let (mut perturb, mut i) = (hash, hash as usize & mask);
+		loop {
+			let last = if i + LINEAR_PROBES <= mask { i + LINEAR_PROBES } else { i };
+			for j in i..=last {
+				match &self.table[j] {
+					Slot::Empty => return None,
+					Slot::Full(k, h) if *h == hash && k == key => return Some(j),
+					_ => {}
+				}
+			}
+			perturb >>= 5;
+			i = (i.wrapping_mul(5).wrapping_add(1).wrapping_add(perturb as usize)) & mask;
+		}
+	}
+
+	pub fn add(&mut self, key: K) {
+		let hash = key.py_hash();
+		let mask = self.mask();
+		let (mut perturb, mut i) = (hash, hash as usize & mask);
+		let mut free = None;
+		loop {
+			let last = if i + LINEAR_PROBES <= mask { i + LINEAR_PROBES } else { i };
+			for j in i..=last {
+				match &self.table[j] {
+					Slot::Empty => {
+						self.used += 1;
+						if let Some(f) = free {
+							self.table[f] = Slot::Full(key, hash);
+							return;
+						}
+						self.table[j] = Slot::Full(key, hash);
+						self.fill += 1;
+						if self.fill * 5 >= mask * 3 {
+							self.resize(if self.used > 50000 { self.used * 2 } else { self.used * 4 });
+						}
+						return;
+					}
+					Slot::Dummy => {
+						free = free.or(Some(j));
+					}
+					Slot::Full(k, h) => {
+						if *h == hash && *k == key {
+							return;
+						}
+					}
+				}
+			}
+			perturb >>= 5;
+			i = (i.wrapping_mul(5).wrapping_add(1).wrapping_add(perturb as usize)) & mask;
+		}
+	}
+
+	pub fn contains(&self, key: &K) -> bool {
+		self.find(key, key.py_hash()).is_some()
+	}
+
+	pub fn discard(&mut self, key: &K) {
+		if let Some(j) = self.find(key, key.py_hash()) {
+			self.table[j] = Slot::Dummy;
+			self.used -= 1;
+		}
+	}
+
+	pub fn len(&self) -> usize {
+		self.used
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.used == 0
+	}
+
+	/// The elements in Python's iteration order.
+	pub fn iter(&self) -> impl Iterator<Item = &K> {
+		self.table.iter().filter_map(|slot| match slot {
+			Slot::Full(key, _) => Some(key),
+			_ => None,
+		})
+	}
+
+	/// set.copy(): one resize up front, then the table copied as it is, or its keys put in afresh.
+	fn copy(&self) -> PySet<K> {
+		let mut set = PySet::default();
+		if self.used * 5 >= set.mask() * 3 {
+			set.resize(self.used * 2);
+		}
+		if set.table.len() == self.table.len() && self.fill == self.used {
+			set.table = self.table.clone();
+		} else {
+			for slot in &self.table {
+				if let Slot::Full(key, hash) = slot {
+					Self::insert_clean(&mut set.table, key.clone(), *hash);
+				}
+			}
+		}
+		set.fill = self.used;
+		set.used = self.used;
+		set
+	}
+
+	/// self - other: a copy with other's elements discarded when other is small, else a new set of the rest.
+	pub fn difference(&self, other: &PySet<K>) -> PySet<K> {
+		if (self.used >> 2) > other.len() {
+			let mut set = self.copy();
+			for key in other.iter() {
+				set.discard(key);
+			}
+			return set;
+		}
+		let mut set = PySet::default();
+		for key in self.iter() {
+			if !other.contains(key) {
+				set.add(key.clone());
+			}
+		}
+		set
+	}
 }
 
 #[cfg(test)]

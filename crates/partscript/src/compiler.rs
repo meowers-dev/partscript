@@ -15,7 +15,7 @@ use kitlib::ruin::broken_box;
 use kitlib::surface::{spread, SurfaceIndex};
 
 use crate::building::{self as pb, Kit, Placement, Plan, Snap};
-use crate::expr::{evaluate, interpolate, is_dynamic, pick_options};
+use crate::expr::{evaluate, evaluate_number, interpolate, is_dynamic, pick_options};
 use crate::host::Host;
 use crate::lang::{
 	arg_value, colour_key, colour_mat, counts, expand_points, is_identifier_lower, material_items, parse_mod, sign_key, split_top, unquote, Macro, Mod,
@@ -432,21 +432,23 @@ impl Compiler {
 	}
 
 	// ------------------------------------------------------------ materials
-	pub fn register_materials(&mut self) {
+	/// Every colour and sign the files name, as materials. A colour with no such finish anywhere stops
+	/// the whole build (as it always did: the error names it).
+	pub fn register_materials(&mut self) -> Result<(), String> {
 		let program = self.program.clone();
 		for prop in &program.props {
 			let env: HashMap<String, String> = program.env_of(&prop.file).iter().map(|(k, v)| (k.clone(), v.text())).collect();
-			self.scan(&prop.body, env);
+			self.scan(&prop.body, env)?;
 		}
 		for m in program.macros.values() {
 			for value in m.params.values() {
-				self.colour(value);
+				self.colour(value)?;
 			}
 			let mut env: HashMap<String, String> = program.env_of(&m.file).iter().map(|(k, v)| (k.clone(), v.text())).collect();
 			for (k, v) in m.params.iter() {
 				env.insert(k.to_string(), v.clone());
 			}
-			self.scan(&m.body, env);
+			self.scan(&m.body, env)?;
 		}
 		for (key, (hex, finish)) in self.colours.iter() {
 			self.host.add_material(key, colour_mat(key, hex, finish), Some(Recipe::Surface { finish: finish.clone(), hex: hex.clone() }));
@@ -455,6 +457,7 @@ impl Compiler {
 		for (key, spec) in signs {
 			self.register_sign(&key, &spec);
 		}
+		Ok(())
 	}
 
 	fn register_sign(&self, key: &str, spec: &Json) {
@@ -466,19 +469,20 @@ impl Compiler {
 		self.host.add_material(key, mat, Some(Recipe::Sign(spec.clone())));
 	}
 
-	fn colour(&mut self, token: &str) {
+	fn colour(&mut self, token: &str) -> Result<(), String> {
 		for option in pick_options(token) {
 			for item in option.split('|') {
 				if item.starts_with('#') {
-					if let Ok(Some((key, hex, finish))) = colour_key(&self.prefix, item) {
+					if let Some((key, hex, finish)) = colour_key(&self.prefix, item)? {
 						self.colours.insert(&key, (hex, finish));
 					}
 				}
 			}
 		}
+		Ok(())
 	}
 
-	fn scan(&mut self, body: &[Rc<Stmt>], mut env: HashMap<String, String>) {
+	fn scan(&mut self, body: &[Rc<Stmt>], mut env: HashMap<String, String>) -> Result<(), String> {
 		for stmt in body {
 			if stmt.op == "set" {
 				for (k, v) in stmt.opts.iter() {
@@ -487,10 +491,10 @@ impl Compiler {
 			}
 			for token in stmt.args.iter().chain(stmt.opts.values()) {
 				for option in pick_options(token) {
-					self.colour(&option);
+					self.colour(&option)?;
 					for item in option.split('|') {
 						if let Some(value) = env.get(item).cloned() {
-							self.colour(&value);
+							self.colour(&value)?;
 						}
 					}
 				}
@@ -498,15 +502,15 @@ impl Compiler {
 			if stmt.op == "sign" && stmt.args.len() >= 4 {
 				let dynamic = format!("{}{}", stmt.args[3], stmt.opt("sub").unwrap_or(""));
 				if !is_dynamic(&dynamic) {
-					if let Ok(spec) = sign_spec(stmt, None) {
-						self.signs.insert(&sign_key(&self.prefix, &spec), spec);
-					}
+					let spec = sign_spec(stmt, None)?;
+					self.signs.insert(&sign_key(&self.prefix, &spec), spec);
 				}
 			}
 			if let Some(block) = &stmt.block {
-				self.scan(block, env.clone());
+				self.scan(block, env.clone())?;
 			}
 		}
+		Ok(())
 	}
 
 	fn material(&self, stmt: &Stmt, token: &str, env: &Env, copy: usize) -> CResult<String> {
@@ -669,7 +673,7 @@ impl Compiler {
 				for (index, matrix) in copies.iter().enumerate() {
 					let cenv = self.copy_env(stmt, env, index)?;
 					if let Some(when) = o.get("when") {
-						if evaluate(when, &cenv)? == 0.0 {
+						if !evaluate_number(when, &cenv)?.truthy() {
 							continue;
 						}
 					}
@@ -706,7 +710,7 @@ impl Compiler {
 			let here = [m.0[0][3], m.0[1][3], m.0[2][3]];
 			cenv.insert("here".into(), Value::Bounds(Rc::new(Bounds::new("here", Some(here), Some(here), vec![], true))));
 			if let Some(when) = o.get("when") {
-				if evaluate(when, &cenv)? == 0.0 {
+				if !evaluate_number(when, &cenv)?.truthy() {
 					continue;
 				}
 			}
@@ -853,7 +857,7 @@ impl Compiler {
 			for (index, matrix) in copies.iter().enumerate() {
 				let cenv = self.copy_env(child, &inner, index)?;
 				if let Some(when) = child.opts.get("when") {
-					if evaluate(when, &cenv)? == 0.0 {
+					if !evaluate_number(when, &cenv)?.truthy() {
 						continue;
 					}
 				}

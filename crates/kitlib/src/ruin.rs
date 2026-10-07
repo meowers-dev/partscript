@@ -4,13 +4,16 @@
 //! ends, in noisy bites), lets go of any that no longer reach the ground through the rest, and draws what
 //! is left: the box's own faces where they survive (merged into big quads where nothing nearby broke) and
 //! rough broken faces, in a core material, where chunks came away.
+//!
+//! The cells kept are walked in the order Python's set of them iterates in (py::PySet), which is the
+//! order the faces were always drawn in.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::geom::Part;
 use crate::maths::V3;
 use crate::noise::rough;
-use crate::py::{self, PyRandom};
+use crate::py::{self, PyRandom, PySet};
 
 type Cell = (i64, i64, i64);
 
@@ -59,15 +62,16 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 	let mut order = cells.clone();
 	order.sort_by(|a, b| scores[b].partial_cmp(&scores[a]).unwrap_or(std::cmp::Ordering::Equal));
 	let take = py::round(amount.clamp(0.0, 1.0) * cells.len() as f64) as usize;
-	let mut gone: BTreeSet<Cell> = order[..take.min(order.len())].iter().copied().collect();
+	let gone_first: PySet<Cell> = order[..take.min(order.len())].iter().copied().collect();
 	// Anything no longer joined to the bottom through the rest falls too.
-	let kept_all: BTreeSet<Cell> = cells.iter().copied().filter(|c| !gone.contains(c)).collect();
-	let mut reached: BTreeSet<Cell> = BTreeSet::new();
+	let kept_all = cells.iter().copied().collect::<PySet<Cell>>().difference(&gone_first);
+	let mut reached: PySet<Cell> = PySet::default();
 	let mut todo: Vec<Cell> = kept_all.iter().copied().filter(|c| c.2 == 0).collect();
 	while let Some(c) = todo.pop() {
-		if !reached.insert(c) {
+		if reached.contains(&c) {
 			continue;
 		}
+		reached.add(c);
 		for (d, _) in SIDES {
 			let nb = (c.0 + d[0], c.1 + d[1], c.2 + d[2]);
 			if kept_all.contains(&nb) && !reached.contains(&nb) {
@@ -75,11 +79,8 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 			}
 		}
 	}
-	for c in &kept_all {
-		if !reached.contains(c) {
-			gone.insert(*c);
-		}
-	}
+	let mut gone: BTreeSet<Cell> = gone_first.iter().copied().collect();
+	gone.extend(kept_all.iter().copied().filter(|c| !reached.contains(c)));
 	let kept = reached;
 	let inside = |c: Cell| (0..n[0]).contains(&c.0) && (0..n[1]).contains(&c.1) && (0..n[2]).contains(&c.2);
 	let mut damaged: HashSet<Cell> = HashSet::new();
@@ -115,7 +116,7 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 		let layer = if direction[axis] > 0 { n[axis] - 1 } else { 0 };
 		let mut clean: Vec<((i64, i64), Cell)> = Vec::new();
 		let lattice = |c: Cell, o: [i64; 3]| (c.0 + o[0], c.1 + o[1], c.2 + o[2]);
-		for &c in &kept {
+		for &c in kept.iter() {
 			if get(c, axis) != layer {
 				continue;
 			}
@@ -148,7 +149,7 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 			part.plain(&points, material);
 		}
 		// Broken faces: a kept chunk beside a missing one.
-		for &c in &kept {
+		for &c in kept.iter() {
 			let nb = (c.0 + direction[0], c.1 + direction[1], c.2 + direction[2]);
 			if inside(nb) && gone.contains(&nb) {
 				let corners: Vec<V3> = offsets.iter().map(|o| point(lattice(c, *o))).collect();

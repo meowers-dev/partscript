@@ -309,6 +309,17 @@ impl Ctx<'_> {
 		}
 	}
 
+	/// number() for a when=: Python only asks whether it is 0, which a complex number never fails.
+	fn condition(&mut self, stmt: &Stmt, text: &str, env: &Env) -> bool {
+		match crate::expr::evaluate_number(text, env) {
+			Ok(v) => v.truthy(),
+			Err(e) => {
+				self.fail(stmt, e);
+				false
+			}
+		}
+	}
+
 	fn number(&mut self, stmt: &Stmt, text: &str, env: &Env) -> f64 {
 		if let Some(rest) = text.strip_prefix('~') {
 			if matches!(env.get(rest), Some(Value::Bounds(_))) {
@@ -709,10 +720,10 @@ impl Ctx<'_> {
 				let words: Vec<&str> = when.split(|c: char| !crate::lang::is_word_char(c)).collect();
 				words.contains(&"i") || when.contains("rand(") || words.contains(&"here")
 			};
-			if !mentions && self.number(stmt, when, env) == 0.0 {
+			if !mentions && !self.condition(stmt, when, env) {
 				return Ok(0);
 			}
-			self.number(stmt, when, &with_i(env));
+			self.condition(stmt, when, &with_i(env));
 		}
 		if let Some(w) = o.get("wobble") {
 			self.vec(stmt, w, &with_i(env), 3);

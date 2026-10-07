@@ -14,6 +14,7 @@ pub mod lang;
 mod npy;
 pub mod ordered;
 pub mod project;
+pub mod pyexpr;
 pub mod reference;
 pub mod textures;
 pub mod value;

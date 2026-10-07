@@ -17,6 +17,8 @@ pub enum Value {
 	Str(Rc<str>),
 	Bounds(Rc<Bounds>),
 	Frame(Rc<M4>),
+	/// a complex number (an argument worked out from a negative number to a fractional power)
+	Complex(f64, f64),
 }
 
 impl Value {
@@ -54,6 +56,7 @@ impl Value {
 			Value::Str(s) => s.to_string(),
 			Value::Bounds(b) => format!("<Bounds {}>", b.name),
 			Value::Frame(_) => "<Matrix>".into(),
+			Value::Complex(re, im) => crate::pyexpr::complex_repr(*re, *im),
 		}
 	}
 

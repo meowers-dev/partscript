@@ -85,3 +85,20 @@ fn hypot_dist_and_sum() {
 		assert_eq!(py::sum(xs.iter().copied()), row.idx(1).as_f64());
 	}
 }
+
+/// PySet iterates as CPython 3.13's set does (tests/reference/sets.json.gz: lattices of cells, a set of
+/// them taken away, and the rest added again in a shuffled order, with the orders Python iterated in).
+#[test]
+fn set_order() {
+	let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/reference/sets.json.gz");
+	let cases = Json::parse(&String::from_utf8(kitlib::gunzip(&std::fs::read(path).unwrap()).unwrap()).unwrap()).unwrap();
+	let cells = |j: &Json| -> Vec<(i64, i64, i64)> { j.as_list().iter().map(|c| (c.idx(0).as_i64(), c.idx(1).as_i64(), c.idx(2).as_i64())).collect() };
+	for case in cases.as_list() {
+		let all: py::PySet<_> = cells(case.get("cells").unwrap()).into_iter().collect();
+		let gone: py::PySet<_> = cells(case.get("gone").unwrap()).into_iter().collect();
+		let kept = all.difference(&gone);
+		assert_eq!(kept.iter().copied().collect::<Vec<_>>(), cells(case.get("kept").unwrap()));
+		let added: py::PySet<_> = cells(case.get("adds").unwrap()).into_iter().collect();
+		assert_eq!(added.iter().copied().collect::<Vec<_>>(), cells(case.get("added").unwrap()));
+	}
+}

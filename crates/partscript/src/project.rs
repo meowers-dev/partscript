@@ -352,7 +352,7 @@ impl Project {
 				return Err(PartScriptError::bare(first.join("; ")));
 			}
 			let mut compiler = Compiler::new(self.program.clone(), self.host.clone());
-			compiler.register_materials();
+			compiler.register_materials().map_err(PartScriptError::bare)?;
 			self.compiler = Some(compiler);
 		}
 		Ok(self.compiler.as_mut().unwrap())
