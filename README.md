@@ -14,7 +14,7 @@ prop street_lamp "Street Lamp" street
 ```
 
 ```sh
-cargo install --git https://github.com/meowers-dev/partscript partscript-cli
+cargo install --locked --git https://github.com/meowers-dev/partscript partscript-cli
 partscript build props/ -o out/      # every prop as out/<id>.glb
 partscript check props/              # names, materials, triangle estimates; instant
 partscript ref                       # the whole language on one page
@@ -383,7 +383,7 @@ every finish and pixel-font signs.
 - `docs/`: the documentation in Markdown
 - `tests/reference/`: what the original Python implementation built, which the Rust tests compare against
 
-`cargo test` runs every test.
+`cargo test --workspace --release --locked` runs every test.
 
 Building the whole site (partscript.dev) into `site/`, as Cloudflare Pages does with build command
 `sh site/build.sh` and output directory `site`:
@@ -394,4 +394,11 @@ sh site/build.sh && python3 -m http.server -d site 8765
 
 ## License
 
-MIT: see [LICENSE](LICENSE). Use it in anything, commercial games included.
+MIT: see [LICENSE](LICENSE). Use it in anything, commercial games included. Bundled compatibility
+code, Unicode data, dependencies and the website font retain their
+[third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and checks, and [SECURITY.md](SECURITY.md) for private
+vulnerability reports and the boundaries to consider when processing untrusted `.parts` files.

@@ -1,5 +1,8 @@
 //! numpy's default random generator (PCG64 seeded through SeedSequence), for textures that must come
 //! out pixel for pixel as they always have.
+//!
+//! Upstream notices: licenses/NumPy.txt, licenses/SeedSequence.txt and licenses/PCG64.txt
+//! at the repository root. Adapted to Rust for PartScript's texture generation.
 
 const INIT_A: u32 = 0x43b0d7e5;
 const MULT_A: u32 = 0x931e8875;

@@ -5,6 +5,8 @@
 //!
 //! PartScript began in Python; these keep every random deal and every rounded key the same, so a
 //! file builds the same model it always did.
+//!
+//! Upstream notices: licenses/CPython.txt and licenses/MT19937.txt at the repository root.
 
 use crate::hash::sha512;
 use crate::unicode;

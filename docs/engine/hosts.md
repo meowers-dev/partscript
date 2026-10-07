@@ -5,6 +5,12 @@ are, how to make their textures, which outside assets `use` may name, what a bui
 from. The default `Host` is self-contained, with a material library and the `BasicProvider`'s textures. A
 game or tool embeds PartScript by giving it a host of its own.
 
+Native project imports can read files outside the initial source directory, including when using
+`Project::from_text`. When accepting untrusted source, pass an explicit `Reader` to `Project::new`
+that only supplies permitted files, and run the build in a separate process with time and memory
+limits. The per-operation count limits do not bound total build cost. `Embed` and `TextureProvider`
+implementations run as trusted code in the host process.
+
 ## Host
 
 ```rust,no_run

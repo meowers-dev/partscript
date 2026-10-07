@@ -1,6 +1,7 @@
 //! Unicode data from CPython 3.13.13's unicodedata (Unicode 15.1.0), so expressions
 //! read as Python reads them: what repr() prints as it is, what strip() and float() take as space and digits,
 //! which characters a name may hold, and NFKC, which Python applies to names. Generated: do not edit.
+//! Upstream notices: licenses/Unicode.txt and licenses/CPython.txt at the repository root.
 
 #![allow(clippy::unreadable_literal)]
 

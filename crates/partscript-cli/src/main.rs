@@ -57,6 +57,9 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
 	};
 	let mut it = argv.iter();
 	args.command = it.next().cloned().ok_or("a command is required")?;
+	if matches!(args.command.as_str(), "-h" | "--help") {
+		return Err(String::new());
+	}
 	if !["ref", "check", "build", "list", "fmt"].contains(&args.command.as_str()) {
 		return Err(format!("invalid choice: '{}' (choose from 'ref', 'check', 'build', 'list', 'fmt')", args.command));
 	}

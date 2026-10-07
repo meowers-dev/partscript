@@ -12,129 +12,182 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="docs/docs.css">
+<script src="theme.js"></script>
 <style>
-	body { background: #17191d; }
-	header.site { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 22px; height: 52px; padding: 0 24px;
-		background: #1d2024ee; border-bottom: 1px solid #2c3036; backdrop-filter: blur(4px); }
-	header.site nav { margin-left: auto; display: flex; gap: 22px; font-size: 15px; }
-	.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
-	.hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 36px; align-items: center; padding: 56px 0 40px; }
-	.hero h1 { font: 700 46px/1.08 system-ui, sans-serif; margin: 0 0 18px; color: #f4f2ea; letter-spacing: -.01em; }
-	.hero h1 em { font-style: normal; color: #ffe88a; }
-	.hero p { font-size: 18px; color: #b8b8b0; max-width: 34em; margin: 0 0 26px; }
-	.buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-	.button { display: inline-block; padding: 10px 18px; font: 600 15px ui-monospace, Menlo, monospace; border: 1px solid #4a5260; color: #e8e8e0; }
-	.button.main { background: #ffe88a; color: #1b1d21; border-color: #ffe88a; }
-	.button:hover { text-decoration: none; filter: brightness(1.1); }
-	.stage { position: relative; aspect-ratio: 4 / 3; background: #262b34 center / cover no-repeat; border: 1px solid #2c3036; overflow: hidden; }
+	body { padding-bottom: 40px; }
+	.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+	.window { margin: 26px 0; scroll-margin-top: 16px; }
+	.window > .body { padding: 14px 16px 18px; }
+	.hero { display: grid; grid-template-columns: 1fr 1.15fr; gap: 28px; align-items: center; padding: 22px 16px 24px; }
+	.hero h1 { margin: 0 0 18px; font: 40px/1.15 var(--pixel); }
+	.hero h1 em { font-style: normal; color: var(--link); }
+	.hero p { margin: 0 0 24px; max-width: 34em; font-size: 16px; }
+	.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+	.button { padding: 7px 16px; }
+	.button:active { padding: 8px 15px 6px 17px; }
+	.stage { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: #262b34 center / cover no-repeat; }
 	.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
-	.stage .caption { position: absolute; left: 10px; bottom: 8px; font: 12px ui-monospace, monospace; color: #c8c8c0; text-shadow: 0 1px 2px #000; }
-	section { padding: 46px 0; border-top: 1px solid #24272c; }
-	section h2 { font-size: 28px; margin: 0 0 8px; border: 0; padding: 0; color: #f0f0e8; }
-	section > .wrap > p.lead { color: #a8a8a0; font-size: 17px; max-width: 46em; margin: 0 0 24px; }
-	.pair { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: stretch; }
+	.stage .caption { position: absolute; left: 6px; bottom: 6px; padding: 2px 6px; font-size: 12px; }
+	p.lead { max-width: 46em; margin: 0 0 16px; font-size: 15px; }
+	.pair { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: stretch; }
+	.pair > * { min-width: 0; }
+	.pair .stage { aspect-ratio: auto; min-height: 300px; }  /* as tall as the code beside it, as wide as its column */
 	.pair .code { margin: 0; }
 	.pair .code pre { height: 100%; font-size: 13px; }
-	.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-	.card { background: #1f2227; border: 1px solid #2c3036; }
-	.card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin: 0; border: 0; border-bottom: 1px solid #2c3036; }
-	.card div { padding: 12px 14px 14px; }
-	.card h3 { margin: 0 0 4px; font: 600 16px system-ui, sans-serif; color: #ffe88a; }
-	.card p { margin: 0; color: #a8a8a0; font-size: 14px; }
-	.card code { font-size: 12.5px; }
-	.install { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-	footer { border-top: 1px solid #24272c; padding: 26px 0 40px; color: #6a7078; font-size: 14px; }
-	@media (max-width: 900px) { .hero, .pair, .install { grid-template-columns: 1fr; } .cards { grid-template-columns: 1fr 1fr; } .hero h1 { font-size: 36px; } }
-	@media (max-width: 560px) { .cards { grid-template-columns: 1fr; } header.site nav { gap: 12px; } }
+	.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+	.card { padding: 4px 4px 10px; background: var(--face); box-shadow: var(--raised); color: var(--text); text-decoration: none; }
+	.card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin: 0 0 8px; }
+	.card h3 { display: inline-block; margin: 0 6px 6px; padding: 2px 4px; font: 20px/1 var(--pixel); }
+	.card:hover h3, .card:focus-visible h3 { background: var(--title); color: #fff; }
+	.card p { margin: 0 10px; font-size: 13px; }
+	.card code { font-size: 12px; }
+	.install { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+	.install .window { margin: 0; }
+	.install .code { margin: 0; }
+	.install pre { box-shadow: none; }
+	.dos pre { background: #000; color: #c0c0c0; }
+	.dos .c { color: #808080; }
+	/* the taskbar: Start, a button for each window on the page, the tray */
+	.taskbar { position: fixed; z-index: 10; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 3px; height: 32px; padding: 3px 2px;
+		background: var(--face); border-top: 1px solid var(--hilite); box-shadow: inset 0 1px var(--light); font: 13px/1 var(--sans); }
+	.taskbar .tasks { display: flex; gap: 3px; flex: 1; min-width: 0; }
+	.taskbar .tasks a { flex: 0 1 170px; min-width: 0; padding: 6px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+		background: var(--face); box-shadow: var(--raised); color: var(--text); text-decoration: none; }
+	.taskbar .tasks a.on { box-shadow: var(--pushed); background: var(--hilite) repeating-conic-gradient(var(--light) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+		font-weight: bold; }
+	.tray { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 10px; box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--light); }
+	.tray a { color: var(--text); text-decoration: none; }
+	.start { position: relative; }
+	.start summary { display: flex; align-items: center; gap: 4px; height: 26px; padding: 0 8px 0 4px; list-style: none; background: var(--face);
+		box-shadow: var(--raised); font-weight: bold; cursor: default; }
+	.start summary::-webkit-details-marker { display: none; }
+	.start summary img { width: 16px; height: 16px; }
+	.start[open] summary { box-shadow: var(--pushed); }
+	.start .menu { position: absolute; left: 0; bottom: 30px; display: flex; min-width: 220px; padding: 3px; background: var(--face); box-shadow: var(--raised); }
+	.start .banner { writing-mode: vertical-rl; transform: rotate(180deg); padding: 6px 3px; background: var(--title); color: #fff; font: 20px/1 var(--pixel); }
+	.start nav { display: flex; flex-direction: column; flex: 1; padding: 2px 0; }
+	.start nav a { padding: 8px 24px 8px 12px; color: var(--text); text-decoration: none; }
+	.start nav a:hover, .start nav a:focus-visible { background: var(--title); color: #fff; outline: 0; }
+	.start nav hr { width: calc(100% - 4px); margin: 3px 2px; border: 0; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--light); }
+	@media (max-width: 900px) { .hero, .pair, .install { grid-template-columns: 1fr; } .pair .stage { aspect-ratio: 4 / 3; min-height: 0; } .cards { grid-template-columns: 1fr 1fr; } .hero h1 { font-size: 20px; } }
+	@media (max-width: 640px) { .cards { grid-template-columns: 1fr; } .taskbar .tasks { visibility: hidden; } .wrap { padding: 0 8px; } }
 </style>
 </head>
 <body>
-<header class="site">
-	<a class="brand" href="index.html">PARTSCRIPT</a>
-	<nav><a href="docs/index.html">docs</a><a href="play.html">playground</a><a href="viewer.html">models</a><a href="docs/guides/gallery.html">gallery</a></nav>
-</header>
-
-<div class="wrap hero">
-	<div>
-		<h1>Low-poly worlds<br>in <em>a few words</em>.</h1>
-		<p>PartScript is a small language for building PSX-style 3D models: props, rooms, ruins, whole buildings
-		and the hills they stand on. A few words a line, a few dozen lines a scene, compiled to <code>.glb</code>
-		by one small Rust program. No Blender needed.</p>
-		<div class="buttons">
-			<a class="button main" href="play.html">try it in your browser</a>
-			<a class="button" href="docs/start/tour.html">take the tour</a>
-			<a class="button" href="docs/index.html">read the docs</a>
+<div class="wrap">
+<div class="window" id="partscript">
+	<div class="titlebar"><img class="icon" src="icon.svg" alt=""><span class="title">PartScript</span></div>
+	<nav class="menubar"><a href="docs/index.html">Docs</a><a href="play.html">Playground</a><a href="viewer.html">Models</a>
+		<a href="docs/guides/gallery.html">Gallery</a><a href="https://github.com/meowers-dev/partscript">GitHub</a>
+		<span class="right"><button class="theme" type="button">Dark mode</button></span></nav>
+	<div class="hero">
+		<div>
+			<h1>Low-poly worlds<br>in <em>a few words</em>.</h1>
+			<p>PartScript is a small language for building PSX-style 3D models: props, rooms, ruins, whole buildings
+			and the hills they stand on. A few words a line, a few dozen lines a scene, compiled to <code>.glb</code>
+			by one small Rust program. No Blender needed.</p>
+			<div class="buttons">
+				<a class="button main" href="play.html">Try it in your browser</a>
+				<a class="button" href="docs/start/tour.html">Take the tour</a>
+				<a class="button" href="docs/index.html">Read the docs</a>
+			</div>
 		</div>
-	</div>
-	<div class="stage" id="hero" style="background-image:url(docs/img/hill_chapel.webp)">
-		<span class="caption">ruins.parts · hill_chapel · <a href="play.html#ruins.parts">open in the playground</a></span>
+		<div class="stage frame" id="hero" style="background-image:url(docs/img/hill_chapel.webp)">
+			<span class="caption tip">ruins.parts · hill_chapel · <a href="play.html#ruins.parts">open in the playground</a></span>
+		</div>
 	</div>
 </div>
 
-<section>
-	<div class="wrap">
-		<h2>A prop is a few lines</h2>
+<div class="window" id="a-prop">
+	<div class="titlebar"><img class="icon" src="icon.svg" alt=""><h2>A prop is a few lines</h2></div>
+	<div class="body">
 		<p class="lead">Name a shape and put things on it. Rows pack books of drawn sizes tight; stacks pile papers
 		up; nothing is added up by hand. Every copy draws its own size and colour, and the same file always builds
 		the same model.</p>
 		<div class="pair">
 			{desk_code}
-			<div class="stage" id="desk" style="background-image:url(docs/img/writers_desk.webp)">
-				<span class="caption">layout.parts · writers_desk · <a href="play.html#layout.parts">open in the playground</a></span>
+			<div class="stage frame" id="desk" style="background-image:url(docs/img/writers_desk.webp)">
+				<span class="caption tip">layout.parts · writers_desk · <a href="play.html#layout.parts">open in the playground</a></span>
 			</div>
 		</div>
 	</div>
-</section>
+</div>
 
-<section>
-	<div class="wrap">
-		<h2>What it can make</h2>
+<div class="window" id="what-it-makes">
+	<div class="titlebar"><img class="icon" src="icon.svg" alt=""><h2>What it can make</h2></div>
+	<div class="body">
 		<p class="lead">Everything here is one of the project's example files, built by PartScript and nothing else.</p>
 		<div class="cards">
-			<a class="card" href="docs/language/generators.html"><img src="docs/img/ruin_stages.webp" alt="One wall broken four ways" loading="lazy"><div>
-				<h3>Places</h3><p>Ground from noise (<code>terrain</code>), walls knocked apart (<code>break=</code>), things that fall onto what is under them (<code>drop=</code>), moss and ivy over named shapes.</p></div></a>
-			<a class="card" href="docs/language/buildings.html"><img src="docs/img/apartment.webp" alt="An apartment block, cut away" loading="lazy"><div>
-				<h3>Buildings</h3><p>A kit of walls, floors and stairs, laid out room by room on a grid, each room furnished by a part that knows its size and doors.</p></div></a>
-			<a class="card" href="docs/language/variety.html"><img src="docs/img/graveyard.webp" alt="A graveyard" loading="lazy"><div>
-				<h3>Variety</h3><p><code>rand()</code>, <code>pick()</code> and <code>when=</code> make every copy different: no two headstones, books or bones alike. <code>odds()</code> deals each one a fate, as often as you say.</p></div></a>
-			<a class="card" href="docs/language/reuse.html"><img src="docs/img/tavern.webp" alt="A tavern room" loading="lazy"><div>
-				<h3>Libraries</h3><p>Parts with parameters, imported from other files and called like shapes: <code>furniture.table at=...</code>.</p></div></a>
-			<a class="card" href="docs/language/paths.html"><img src="docs/img/railing.webp" alt="Rails joined round a corner" loading="lazy"><div>
-				<h3>Paths and links</h3><p>Pieces that chain end to end, copies along a line of points, loose ends that join themselves up.</p></div></a>
-			<a class="card" href="docs/guides/psx-style.html"><img src="docs/img/standing_stones.webp" alt="Standing stones" loading="lazy"><div>
-				<h3>The PSX look</h3><p>Few triangles, small dithered textures with hard pixels, shading baked into the corners of faces.</p></div></a>
+			<a class="card" href="docs/language/generators.html"><img src="docs/img/ruin_stages.webp" alt="One wall broken four ways" loading="lazy">
+				<h3>Places</h3><p>Ground from noise (<code>terrain</code>), walls knocked apart (<code>break=</code>), things that fall onto what is under them (<code>drop=</code>), moss and ivy over named shapes.</p></a>
+			<a class="card" href="docs/language/buildings.html"><img src="docs/img/apartment.webp" alt="An apartment block, cut away" loading="lazy">
+				<h3>Buildings</h3><p>A kit of walls, floors and stairs, laid out room by room on a grid, each room furnished by a part that knows its size and doors.</p></a>
+			<a class="card" href="docs/language/variety.html"><img src="docs/img/graveyard.webp" alt="A graveyard" loading="lazy">
+				<h3>Variety</h3><p><code>rand()</code>, <code>pick()</code> and <code>when=</code> make every copy different: no two headstones, books or bones alike. <code>odds()</code> deals each one a fate, as often as you say.</p></a>
+			<a class="card" href="docs/language/reuse.html"><img src="docs/img/tavern.webp" alt="A tavern room" loading="lazy">
+				<h3>Libraries</h3><p>Parts with parameters, imported from other files and called like shapes: <code>furniture.table at=...</code>.</p></a>
+			<a class="card" href="docs/language/paths.html"><img src="docs/img/railing.webp" alt="Rails joined round a corner" loading="lazy">
+				<h3>Paths and links</h3><p>Pieces that chain end to end, copies along a line of points, loose ends that join themselves up.</p></a>
+			<a class="card" href="docs/guides/psx-style.html"><img src="docs/img/standing_stones.webp" alt="Standing stones" loading="lazy">
+				<h3>The PSX look</h3><p>Few triangles, small dithered textures with hard pixels, shading baked into the corners of faces.</p></a>
 		</div>
 	</div>
-</section>
+</div>
 
-<section>
-	<div class="wrap">
-		<h2>Use it</h2>
+<div class="window" id="use-it">
+	<div class="titlebar"><img class="icon" src="icon.svg" alt=""><h2>Use it</h2></div>
+	<div class="body">
 		<p class="lead">From the command line, from Rust, or embedded in a game with your own materials and textures.
 		The output is plain glTF: Godot, Unity, Blender, three.js.</p>
 		<div class="install">
-			<div class="code"><pre>cargo install --git https://github.com/meowers-dev/partscript partscript-cli
+			<div class="window"><div class="titlebar"><span class="title">MS-DOS Prompt</span></div>
+			<div class="code dos"><pre>C:\&gt; cargo install --locked --git https://github.com/meowers-dev/partscript partscript-cli
 
 partscript check props/         <span class="c"># instant: mistakes and triangle counts</span>
 partscript build props/ -o out/ <span class="c"># every prop as out/&lt;id&gt;.glb</span>
 partscript fmt props/a.parts -w <span class="c"># tidy a file</span>
-partscript ref                  <span class="c"># the whole language, one page</span></pre></div>
-			<div class="code"><pre><span class="k">use</span> partscript::{Host, Project};
+partscript ref                  <span class="c"># the whole language, one page</span></pre></div></div>
+			<div class="window"><div class="titlebar"><span class="title">main.rs - Notepad</span></div>
+			<div class="code field"><pre><span class="k">use</span> partscript::{Host, Project};
 
 <span class="k">let mut</span> p = Project::from_paths(
     &amp;[<span class="s">"props/"</span>], Host::default())?;
 println!(<span class="s">"{:?}"</span>, p.check().errors);
 <span class="k">let</span> lamp = p.build(<span class="s">"street_lamp"</span>,
     &amp;Default::default())?;
-std::fs::write(<span class="s">"lamp.glb"</span>, lamp.glb)?;</pre></div>
+std::fs::write(<span class="s">"lamp.glb"</span>, lamp.glb)?;</pre></div></div>
 		</div>
 	</div>
-</section>
+</div>
+</div>
 
-<footer><div class="wrap">PartScript · <a href="docs/index.html">docs</a> · <a href="play.html">playground</a> ·
-	<a href="viewer.html">every model</a> · <a href="docs/engine/api.html">Rust API</a> ·
-	<a href="https://github.com/meowers-dev/partscript">GitHub</a> · MIT license</div></footer>
+<footer class="taskbar">
+	<details class="start">
+		<summary><img src="icon.svg" alt="">Start</summary>
+		<div class="menu"><span class="banner">PartScript</span><nav>
+			<a href="docs/index.html">Docs</a><a href="docs/start/tour.html">Take the tour</a><a href="play.html">Playground</a>
+			<a href="viewer.html">Every model</a><a href="docs/guides/gallery.html">Gallery</a><a href="docs/engine/api.html">Rust API</a><hr>
+			<a href="https://github.com/meowers-dev/partscript">GitHub</a></nav></div>
+	</details>
+	<nav class="tasks"><a href="#partscript">PartScript</a><a href="#a-prop">A prop is a few lines</a><a href="#what-it-makes">What it can make</a><a href="#use-it">Use it</a></nav>
+	<span class="tray"><a href="LICENSE">MIT license</a><a href="THIRD_PARTY_NOTICES.md">Third-party notices</a><span id="clock"></span></span>
+</footer>
 
+<script>
+// The taskbar: the window on screen is the pressed button; the clock; Start closes when you click elsewhere.
+const tasks = [...document.querySelectorAll(".tasks a")];
+const onScreen = new IntersectionObserver(entries => {
+	for (const entry of entries) if (entry.isIntersecting) tasks.forEach(a => a.classList.toggle("on", a.hash === "#" + entry.target.id));
+}, { rootMargin: "-45% 0px -50% 0px" });
+tasks.forEach(a => onScreen.observe(document.querySelector(a.hash)));
+const clock = document.getElementById("clock");
+const tick = () => { clock.textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
+tick();
+setInterval(tick, 15000);
+const start = document.querySelector(".start");
+document.addEventListener("click", event => { if (!start.contains(event.target)) start.open = false; });
+document.addEventListener("keydown", event => { if (event.key === "Escape") start.open = false; });
+</script>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }

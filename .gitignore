@@ -5,3 +5,18 @@ site/pkg/
 site/examples/
 site/docs/
 site/index.html
+site/licenses/
+site/LICENSE
+site/THIRD_PARTY_NOTICES.md
+
+# Local credentials and tool output
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store

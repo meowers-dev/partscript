@@ -2,6 +2,8 @@
   Cache-Control: public, max-age=86400
 /docs/img/*
   Cache-Control: public, max-age=604800
+/fonts/*
+  Cache-Control: public, max-age=604800
 /pkg/*
   Cache-Control: public, max-age=3600
 /*

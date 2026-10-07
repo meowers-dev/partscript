@@ -12,6 +12,8 @@ PartScript is a small language for low-poly, PSX-style 3D models that compiles t
   (Python's random, float formatting, set order, min/max and math errors, kept so files build the same).
 - `crates/partscript-cli`: the `partscript` command. `crates/partscript-wasm`: the playground's compiler.
 - `crates/site`: builds partscript.dev (`models`, `docs [--check]`, `shots`). `site/`: static pages.
+  Every page wears ZombieBox's Win98 theme from one stylesheet, `site/docs-assets/docs.css` (served as
+  `docs/docs.css`); `site/fonts/` holds its Home Video font (CC0).
 - `docs/`: the documentation (Markdown, built into the site). `examples/`, `library/`: example files.
 - `tests/reference/`: fixtures from the Python original; the Rust tests compare against them.
 

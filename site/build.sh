@@ -15,7 +15,12 @@ fi
 if command -v rustup >/dev/null 2>&1; then
 	rustup target add wasm32-unknown-unknown >/dev/null
 fi
-cargo build --profile wasm --target wasm32-unknown-unknown -p partscript-wasm
+cargo build --locked --profile wasm --target wasm32-unknown-unknown -p partscript-wasm
 mkdir -p site/pkg
 cp target/wasm32-unknown-unknown/wasm/partscript_wasm.wasm site/pkg/partscript.wasm
-cargo run --release -p site -- all
+cargo run --release --locked -p site -- all
+# Keep notices beside the distributed WebAssembly and website assets.
+mkdir -p site/licenses site/licenses/home-video
+cp LICENSE THIRD_PARTY_NOTICES.md site/
+cp licenses/*.txt site/licenses/
+cp site/fonts/LICENSE.txt site/licenses/home-video/LICENSE.txt

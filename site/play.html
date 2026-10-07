@@ -3,54 +3,57 @@
 <head>
 <meta charset="utf-8">
 <title>PartScript playground</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="docs/docs.css">
+<script src="theme.js"></script>
 <style>
-	* { box-sizing: border-box; }
-	body { margin: 0; height: 100vh; display: grid; grid-template-rows: auto 1fr; background: #1b1d21; color: #d8d8d0;
-		font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
-	header { display: flex; gap: 14px; align-items: center; padding: 6px 10px; background: #26292e; border-bottom: 1px solid #333; }
-	header h1 { font-size: 13px; margin: 0; letter-spacing: .05em; }
-	header a { color: #9ab8f0; }
-	select, button { font: inherit; background: #15171a; color: inherit; border: 1px solid #444; padding: 2px 6px; }
-	label { color: #aaa; }
-	#status { color: #8a8f98; margin-left: auto; }
-	#status.busy { color: #e8c040; }
-	main { display: grid; grid-template-columns: minmax(420px, 46%) 1fr; min-height: 0; }
-	#left { display: grid; grid-template-rows: 1fr auto; min-height: 0; border-right: 1px solid #333; }
-	#editor { position: relative; display: grid; grid-template-columns: 4.5ch 1fr; min-height: 0; background: #15171a; }
-	#gutter { overflow: hidden; color: #555; text-align: right; padding: 8px 6px 8px 0; user-select: none; white-space: pre; }
-	#gutter .bad { color: #ff7a6a; background: #4a2020; }
-	#gutter .warn { color: #e8c040; }
-	textarea { resize: none; border: 0; outline: 0; background: transparent; color: #e0e0d8; font: inherit; padding: 8px; white-space: pre;
-		overflow: auto; tab-size: 2; caret-color: #ffe88a; }
-	#messages { max-height: 30vh; overflow: auto; border-top: 1px solid #333; padding: 4px 0; }
-	#messages div { padding: 1px 10px; cursor: pointer; white-space: pre-wrap; }
-	#messages .error { color: #ff9a8a; }
-	#messages .warning { color: #e8c040; }
-	#messages .ok { color: #8ac89a; cursor: default; }
-	#view { position: relative; min-height: 0; }
+	body { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; padding-top: 3px; }
+	.toolbar label { display: flex; align-items: center; gap: 5px; }
+	#prop { min-width: 140px; max-width: 220px; }
+	#status.busy { color: var(--error); }
+	main { display: grid; grid-template-columns: minmax(420px, 46%) 1fr; gap: 3px; min-height: 0; padding-top: 3px; }
+	#left { display: grid; grid-template-rows: 1fr auto; gap: 3px; min-height: 0; }
+	#editor { display: grid; grid-template-columns: 4.5ch 1fr; min-height: 0; font: 13px/1.45 var(--mono); }
+	#gutter { overflow: hidden; padding: 6px 6px 6px 0; background: var(--hover); border-right: 1px solid var(--face); color: var(--c);
+		text-align: right; white-space: pre; user-select: none; }
+	#gutter .bad { background: #800000; color: #fff; }
+	#gutter .warn { background: var(--tip); color: var(--warn); }
+	textarea { resize: none; border: 0; padding: 6px 8px; background: transparent; color: var(--text); font: inherit; white-space: pre; overflow: auto;
+		tab-size: 2; caret-color: var(--text); }
+	#messages { min-height: 3.2em; max-height: 30vh; overflow: auto; padding: 4px 2px; font: 12px/1.45 var(--mono); }
+	#messages div { padding: 1px 8px; white-space: pre-wrap; cursor: pointer; }
+	#messages div:hover { background: var(--title); color: #fff; }
+	#messages .error { color: var(--error); }
+	#messages .warning { color: var(--warn); }
+	#messages .ok { color: var(--ok); cursor: default; }
+	#messages .ok:hover { background: none; color: var(--ok); }
+	#view { position: relative; min-height: 0; background: #30343a; }
 	#view canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-	#hud { position: absolute; left: 10px; top: 8px; color: #aaa; pointer-events: none; }
 </style>
 </head>
-<body>
-<header>
-	<h1>PARTSCRIPT PLAYGROUND</h1>
-	<select id="file"></select>
-	<select id="prop"></select>
-	<label><input type="checkbox" id="psx" checked> PSX look</label>
-	<button id="reset" title="Put the example back as it was">reset</button>
-	<a href="viewer.html">all models</a>
-	<a href="docs/index.html">docs</a>
-	<a href="index.html">home</a>
-	<span id="status" class="busy">loading the compiler...</span>
-</header>
+<body class="app">
+<div class="titlebar"><img class="icon" src="icon.svg" alt=""><h1>PartScript Playground</h1>
+	<span class="controls"><a class="ctl" href="index.html" title="Close: back to the home page" aria-label="Close">×</a></span></div>
+<div>
+	<nav class="menubar"><a href="index.html">Home</a><a href="docs/index.html">Docs</a><a href="viewer.html">All models</a>
+		<a href="https://github.com/meowers-dev/partscript">GitHub</a>
+		<span class="right"><button class="theme" type="button">Dark mode</button></span></nav>
+	<div class="toolbar">
+		<label>File <select id="file"></select></label>
+		<label>Prop <select id="prop"></select></label>
+		<span class="sep"></span>
+		<label><input type="checkbox" id="psx" checked>PSX look</label>
+		<button id="reset" title="Put the example back as it was">Reset</button>
+	</div>
+</div>
 <main>
 	<div id="left">
-		<div id="editor"><div id="gutter"></div><textarea id="code" spellcheck="false" autocomplete="off"></textarea></div>
-		<div id="messages"></div>
+		<div id="editor" class="field"><div id="gutter"></div><textarea id="code" spellcheck="false" autocomplete="off"></textarea></div>
+		<div id="messages" class="field"></div>
 	</div>
-	<div id="view"><div id="hud">drag: orbit · wheel: zoom · right-drag: pan · ctrl+enter: build now</div></div>
+	<div id="view" class="frame"></div>
 </main>
+<div class="statusbar"><span id="status" class="busy">loading the compiler...</span><span>drag: orbit · wheel: zoom · right-drag: pan · ctrl+enter: build now</span></div>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
@@ -235,7 +238,7 @@ worker.onmessage = ({ data }) => {
 		$("status").className = "";
 		if (!result.errors.length && !(result.warnings || []).length) list.innerHTML = '<div class="ok">no mistakes</div>';
 	} else {
-		$("status").textContent = "not built: see below";
+		$("status").textContent = "not built: see the messages";
 		$("status").className = "busy";
 	}
 	if (again) { again = false; build(); }

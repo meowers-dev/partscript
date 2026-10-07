@@ -4,7 +4,7 @@ PartScript is one program, `partscript`, written in Rust with no other dependenc
 Cargo (from [rustup](https://rustup.rs)):
 
 ```sh
-cargo install --git https://github.com/meowers-dev/partscript partscript-cli
+cargo install --locked --git https://github.com/meowers-dev/partscript partscript-cli
 partscript ref | less               # the whole language on one page
 ```
 
@@ -13,7 +13,7 @@ Or, working from a clone of the repository:
 ```sh
 git clone https://github.com/meowers-dev/partscript
 cd partscript
-cargo run --release -p partscript-cli -- ref | less
+cargo run --release --locked -p partscript-cli -- ref | less
 ```
 
 You do not need to install anything to try it: the [playground](../../play.html) runs PartScript in
@@ -45,8 +45,8 @@ partscript check props/          # parses everything, counts triangles; no build
 partscript build props/ -o out/  # writes out/crate_stack.glb
 ```
 
-`out/crate_stack.glb` opens in Blender, Godot, three.js, any glTF viewer. It is 36 triangles with
-three small textures.
+`out/crate_stack.glb` opens in Blender, Godot, three.js, any glTF viewer. It is 44 triangles with
+two small textures.
 
 ## Units and directions
 

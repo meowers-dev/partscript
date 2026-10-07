@@ -6,14 +6,29 @@
 <title>Not here · PartScript</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/docs/docs.css">
+<script src="/theme.js"></script>
+<style>
+	body { display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+	.dialog { width: min(480px, 100%); }
+	.dialog .message { display: flex; gap: 16px; padding: 18px 14px 4px; }
+	.dialog .message p { margin: 0 0 8px; }
+	.error { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: #e00000;
+		border: 1px solid #800000; box-shadow: 1px 1px var(--shadow); color: #fff; font: bold 20px/1 var(--sans); }
+	.dialog .code { margin: 8px 14px 0; }
+	.buttons { display: flex; justify-content: center; gap: 8px; padding: 14px; }
+</style>
 </head>
 <body>
-<main style="max-width:640px;margin:12vh auto;padding:0 24px">
-<h1>Nothing here</h1>
-<p>That page is not on partscript.dev. Try the <a href="/">home page</a>, the <a href="/docs/index.html">docs</a>
-or the <a href="/play.html">playground</a>.</p>
-<div class="code parts"><pre><span class="k">prop</span> missing_page <span class="s">"404"</span>
+<div class="window dialog" role="alertdialog" aria-labelledby="what">
+	<div class="titlebar"><img class="icon" src="/icon.svg" alt=""><span class="title">PartScript</span>
+		<span class="controls"><a class="ctl" href="/" title="Close: back to the home page" aria-label="Close">×</a></span></div>
+	<div class="message">
+		<span class="error" aria-hidden="true">×</span>
+		<div><p id="what"><b>Nothing here.</b></p><p>That page is not on partscript.dev.</p></div>
+	</div>
+	<div class="code parts"><pre><span class="k">prop</span> missing_page <span class="s">"404"</span>
   <span class="k">box</span> <span class="o">size</span>=<span class="n">0</span> <span class="o">mat</span>=none</pre></div>
-</main>
+	<div class="buttons"><a class="button main" href="/">Home</a><a class="button" href="/docs/index.html">Docs</a><a class="button" href="/play.html">Playground</a></div>
+</div>
 </body>
 </html>

@@ -463,14 +463,16 @@ const TEMPLATE: &str = r#"<!doctype html>
 <title>{title} · PartScript</title>
 <link rel="stylesheet" href="{up}docs.css">
 <link rel="icon" href="{up}../icon.svg" type="image/svg+xml">
+<script src="{up}../theme.js"></script>
 </head>
-<body>
-<header>
-	<a class="brand" href="{up}index.html">PARTSCRIPT</a>
-	<input id="search" type="search" placeholder="search the docs" autocomplete="off">
-	<nav class="top"><a href="{up}../play.html">playground</a><a href="{up}../viewer.html">models</a><a href="{up}../index.html">home</a>
-	<a href="https://github.com/meowers-dev/partscript">github</a></nav>
-</header>
+<body class="app">
+<div class="chrome">
+	<div class="titlebar"><img class="icon" src="{up}../icon.svg" alt=""><span class="title">{title} · PartScript Help</span>
+		<span class="controls"><a class="ctl" href="{up}../index.html" title="Close: back to the home page" aria-label="Close">×</a></span></div>
+	<nav class="menubar"><a href="{up}index.html">Contents</a><a href="{up}../play.html">Playground</a><a href="{up}../viewer.html">Models</a>
+		<a href="{up}../index.html">Home</a><a href="https://github.com/meowers-dev/partscript">GitHub</a>
+		<span class="right"><button class="theme" type="button">Dark mode</button><label for="search">Search:</label><input id="search" type="search" placeholder="press /" autocomplete="off"></span></nav>
+</div>
 <div id="results" hidden></div>
 <div class="layout">
 <aside class="nav">{nav}</aside>
