@@ -17,6 +17,9 @@ use crate::py::{self, PyRandom, PySet};
 
 type Cell = (i64, i64, i64);
 
+/// The most chunks a box is cut into: past this the lattice takes more memory and time than a prop is worth.
+pub const MAX_CHUNKS: i64 = 100_000;
+
 const SIDES: [([i64; 3], [[i64; 3]; 4]); 6] = [
 	([1, 0, 0], [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]),
 	([-1, 0, 0], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]]),
@@ -31,11 +34,19 @@ fn get(c: Cell, a: usize) -> i64 {
 }
 
 /// A box of size centred on the part's origin with amount (0-1) of it knocked out in chunks about chunk
-/// across. Draws into part; returns the fallen chunks as [(centre, size)] in the same space.
+/// across. Draws into part; returns the fallen chunks as [(centre, size)] in the same space, or the
+/// ValueError Python raised for a lattice that is not finite or has more than MAX_CHUNKS chunks.
 #[allow(clippy::too_many_arguments)]
-pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk: f64, seed: &str, core: Option<&str>) -> Vec<(V3, V3)> {
+pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk: f64, seed: &str, core: Option<&str>) -> Result<Vec<(V3, V3)>, String> {
 	let core = core.unwrap_or(material);
-	let n: [i64; 3] = size.map(|s| (py::round(s / chunk) as i64).max(1));
+	let across = size.map(|s| if chunk == 0.0 { f64::INFINITY } else { s / chunk });
+	if !across.iter().all(|v| v.is_finite()) {
+		return Err("break= needs a finite size and a finite chunk= other than 0".into());
+	}
+	let n: [i64; 3] = across.map(|v| (py::round(v) as i64).max(1));
+	if n.iter().map(|&k| k as f64).product::<f64>() > MAX_CHUNKS as f64 {
+		return Err(format!("break= would cut it into more than {MAX_CHUNKS} chunks: make chunk= bigger"));
+	}
 	let cell: V3 = [size[0] / n[0] as f64, size[1] / n[1] as f64, size[2] / n[2] as f64];
 	let half: V3 = size.map(|s| s / 2.0);
 	let mut rng = PyRandom::from_str(&format!("ruin#{seed}"));
@@ -157,7 +168,7 @@ pub fn broken_box(part: &mut Part, size: V3, material: &str, amount: f64, chunk:
 			}
 		}
 	}
-	gone.iter().map(|&c| (centre(c), cell)).collect()
+	Ok(gone.iter().map(|&c| (centre(c), cell)).collect())
 }
 
 /// A quad, as two triangles when nudged corners have bent it out of flat.

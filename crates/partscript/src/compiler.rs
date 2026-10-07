@@ -1545,7 +1545,7 @@ impl Compiler {
 					Some(c) => Some(mat(c)?),
 					None => None,
 				};
-				let fallen = broken_box(p, size, &material, amount, chunk, &seed, core.as_deref());
+				let fallen = broken_box(p, size, &material, amount, chunk, &seed, core.as_deref())?;
 				p.pop();
 				let degrees = rotation.map(f64::to_degrees);
 				self.fallen = Some((M4::translation(centre).mul(&rot(degrees).to_4x4()), size, fallen));
