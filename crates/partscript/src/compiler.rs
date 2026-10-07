@@ -2366,6 +2366,11 @@ fn drop_onto(faces: &mut [&mut Face], ground: &mut SurfaceIndex, lean: bool, sin
 		let bottom = py::min_iter(points.iter().map(|q| q[2])).unwrap_or(f64::INFINITY);
 		let top = py::max_iter(points.iter().map(|q| q[2])).unwrap_or(f64::NEG_INFINITY);
 		let low: Vec<V3> = points.iter().copied().filter(|q| q[2] <= bottom + py::max2(0.02, (top - bottom) * 0.1)).collect();
+		if low.is_empty() {
+			// sum([]) / len([]): Python's ZeroDivisionError, which nothing caught
+			py::raise(py::Fault::Fatal("ZeroDivisionError: division by zero".into()));
+			return;
+		}
 		let cx = py::sum(low.iter().map(|q| q[0])) / low.len() as f64;
 		let cy = py::sum(low.iter().map(|q| q[1])) / low.len() as f64;
 		let mut samples: Vec<(f64, f64)> = Vec::new();

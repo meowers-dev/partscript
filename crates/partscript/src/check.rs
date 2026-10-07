@@ -551,8 +551,25 @@ impl Ctx<'_> {
 				}
 				self.copies(stmt, env);
 				self.vec(stmt, &a[1], env, 3);
+				// each number as number() reads it: a mistake in one is reported, and it counts as 0
 				let env2 = env.clone();
-				if let Err(e) = pb::parse_dir(&a[2], &mut |v: &str| Ok(evaluate(v, &env2).unwrap_or(0.0))) {
+				let mut mistakes: Vec<String> = Vec::new();
+				let parsed = pb::parse_dir(&a[2], &mut |v: &str| {
+					if let Some(rest) = v.strip_prefix('~') {
+						if matches!(env2.get(rest), Some(Value::Bounds(_))) {
+							return Ok(0.0);
+						}
+					}
+					let trimmed = v.trim_start_matches('~');
+					Ok(evaluate(if trimmed.is_empty() { "0" } else { trimmed }, &env2).unwrap_or_else(|e| {
+						mistakes.push(e);
+						0.0
+					}))
+				});
+				for m in mistakes {
+					self.fail(stmt, m);
+				}
+				if let Err(e) = parsed {
 					self.fail(stmt, format!("link toward: {e}"));
 				}
 				return Ok(0);

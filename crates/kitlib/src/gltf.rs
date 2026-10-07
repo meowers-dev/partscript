@@ -22,6 +22,15 @@ const NEAREST: i64 = 9728;
 const NEAREST_MIPMAP_NEAREST: i64 = 9984;
 
 /// A baked tone as Blender's exporter writes it: 8-bit sRGB held back in linear at 16 bits.
+/// struct.pack("<f", x): a finite number past a float32's range was an OverflowError nothing caught.
+fn pack_f32(x: f64) -> f32 {
+	let y = x as f32;
+	if y.is_infinite() && x.is_finite() {
+		py::raise(py::Fault::Fatal("OverflowError: float too large to pack with f format".into()));
+	}
+	y
+}
+
 pub fn colour_word(value: f64) -> u16 {
 	let value = py::max2(0.0, py::min2(1.0, value));
 	let encoded = if value <= 0.0031308 { 12.92 * value } else { 1.055 * value.powf(1.0 / 2.4) - 0.055 };
@@ -89,7 +98,7 @@ impl Glb<'_> {
 
 	fn accessor(&mut self, values: Values, width: usize, kind: &str, target: i64, normalized: bool, bounds: bool) -> usize {
 		let (bytes, component, count) = match &values {
-			Values::F32(v) => (v.iter().flat_map(|x| (*x as f32).to_le_bytes()).collect::<Vec<u8>>(), FLOAT, v.len() / width),
+			Values::F32(v) => (v.iter().flat_map(|x| pack_f32(*x).to_le_bytes()).collect::<Vec<u8>>(), FLOAT, v.len() / width),
 			Values::U16(v) => (v.iter().flat_map(|x| x.to_le_bytes()).collect(), USHORT, v.len() / width),
 			Values::U32(v) => (v.iter().flat_map(|x| x.to_le_bytes()).collect(), UINT, v.len() / width),
 		};
