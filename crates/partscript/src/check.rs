@@ -99,7 +99,7 @@ pub struct CheckedProp {
 	pub subcategory: String,
 	pub file: String,
 	pub line: usize,
-	pub triangles: usize,
+	pub triangles: i64,
 	pub warnings: Vec<String>,
 	pub kind: String,
 }
@@ -205,7 +205,7 @@ pub fn check(program: &Program, host: &Host) -> Report {
 		}
 		let mut prop_warnings = context.warnings.clone();
 		let budget = prop_budget(prop);
-		if tris > budget {
+		if tris > budget as i64 {
 			prop_warnings.push(format!("about {tris} triangles, over the {budget} prop budget (hero=1 allows {TRIANGLE_BUDGET}, budget=N sets it)"));
 		}
 		errors.extend(context.errors.clone());
@@ -469,11 +469,11 @@ impl Ctx<'_> {
 		}
 	}
 
-	pub fn estimate(&mut self, body: &[Rc<Stmt>], env: &Env, depth: usize) -> Result<usize, String> {
+	pub fn estimate(&mut self, body: &[Rc<Stmt>], env: &Env, depth: usize) -> Result<i64, String> {
 		if depth > 8 {
 			return Err("use/at nested more than 8 deep (a def using itself?)".into());
 		}
-		let mut total = 0usize;
+		let mut total = 0i64;
 		let mut env = env.clone();
 		env.entry("here".into()).or_insert_with(origin_bounds);
 		for stmt in body {
@@ -485,7 +485,7 @@ impl Ctx<'_> {
 		Ok(total)
 	}
 
-	fn statement(&mut self, stmt: &Rc<Stmt>, env: &mut Env, depth: usize) -> Result<usize, String> {
+	fn statement(&mut self, stmt: &Rc<Stmt>, env: &mut Env, depth: usize) -> Result<i64, String> {
 		let (op, mut a) = (stmt.op.as_str(), stmt.args.clone());
 		let m = if op == "use" && !a.is_empty() { self.program.macro_(&a[0], &stmt.file) } else { None };
 		let o: Ordered<String> = match &m {
@@ -589,11 +589,11 @@ impl Ctx<'_> {
 				if names.is_empty() {
 					self.fail(stmt, "chain needs pieces: chain path_straight path_curve*2 ...");
 				}
-				let mut sum = 0usize;
+				let mut sum = 0i64;
 				for name in &names {
 					sum = sum.saturating_add(self.use_triangles(stmt, name, env, depth));
 				}
-				return Ok(sum.saturating_mul(self.copies(stmt, env)));
+				return Ok(sum.saturating_mul(self.copies(stmt, env) as i64));
 			}
 			"part" | "size" | "card" => {
 				if op == "card" {
@@ -1076,10 +1076,10 @@ impl Ctx<'_> {
 			}
 			_ => 0,
 		};
-		Ok((tris.max(0) as usize).saturating_mul(n))
+		Ok(tris.saturating_mul(n as i64))
 	}
 
-	pub fn use_triangles(&mut self, stmt: &Stmt, name: &str, env: &Env, depth: usize) -> usize {
+	pub fn use_triangles(&mut self, stmt: &Stmt, name: &str, env: &Env, depth: usize) -> i64 {
 		if let Some(m) = self.program.macro_(name, &stmt.file) {
 			let mut local = env.clone();
 			for (k, v) in self.program.env_of(&m.file) {
@@ -1111,7 +1111,7 @@ impl Ctx<'_> {
 		}
 		let asset = if name.contains("__") { name.to_string() } else { self.host.asset_id(name) };
 		if let Some(t) = self.assets.get(&asset).or_else(|| self.assets.get(name)) {
-			return *t;
+			return *t as i64;
 		}
 		let host = self.host;
 		if let Some(own) = self.program.find_prop(name, &stmt.file, &|p: &Prop| vec![p.name.clone(), host.asset_id(&p.name)]) {
@@ -1130,7 +1130,7 @@ impl Ctx<'_> {
 			return 0;
 		}
 		if let Some(parts) = self.host.foreign_parts(name) {
-			return parts.iter().map(|p| p.triangle_count()).sum();
+			return parts.iter().map(|p| p.triangle_count() as i64).sum();
 		}
 		if stmt.called {
 			self.fail(stmt, format!("unknown statement '{name}' (not a shape, a def, a std part or a prop; partscript ref lists the shapes)"));
@@ -1153,7 +1153,7 @@ pub fn usage(op: &str) -> String {
 }
 
 /// A building's kit and room plan, without building: errors into context, triangles of what it places.
-fn check_building(program: &Program, prop: &Prop, host: &Host, context: &mut Ctx) -> usize {
+fn check_building(program: &Program, prop: &Prop, host: &Host, context: &mut Ctx) -> i64 {
 	let mut env = program.env_of(&prop.file);
 	env.insert("i".into(), Value::Int(0));
 	let kit = match pb::resolve_kit(program, prop.opt("kit").unwrap_or(""), &host.base_kit(), &prop.file) {
@@ -1167,8 +1167,8 @@ fn check_building(program: &Program, prop: &Prop, host: &Host, context: &mut Ctx
 	let result = pb::plan(prop, kit.clone(), &mut number);
 	context.errors.extend(result.errors.clone());
 	context.warnings.extend(result.warnings.clone());
-	let mut total = 0usize;
-	let mut counted: HashMap<String, usize> = HashMap::new();
+	let mut total = 0i64;
+	let mut counted: HashMap<String, i64> = HashMap::new();
 	for placement in &result.placements {
 		let (piece, stmt) = (&placement.piece, &placement.stmt);
 		if placement.role == "fill" {
