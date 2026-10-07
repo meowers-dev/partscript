@@ -280,6 +280,8 @@ pub struct Written {
 	pub built: Vec<(String, usize, f64)>,
 	pub errors: Vec<String>,
 	pub warnings: Vec<String>,
+	/// what stopped the build part-way (the props before it are written)
+	pub fatal: Option<String>,
 }
 
 pub struct Project {
@@ -455,6 +457,10 @@ impl Project {
 				Ok(built) => {
 					out.built.push((built.asset_id.clone(), built.triangles(), (built.seconds * 10000.0).round() / 10000.0));
 					out.warnings.extend(built.warnings);
+				}
+				Err(e) if e.fatal => {
+					out.fatal = Some(e.to_string());
+					break;
 				}
 				Err(e) => out.errors.push(e.to_string()),
 			}

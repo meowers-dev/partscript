@@ -133,6 +133,9 @@ fn build(args: &Args) -> Result<bool, String> {
 	}
 	let only: Option<Vec<String>> = args.only.as_ref().map(|o| o.split(',').map(str::to_string).collect());
 	let result = project.write_all(Path::new(&args.out), only.as_deref(), args.seed.as_deref());
+	if let Some(fatal) = &result.fatal {
+		return Err(fatal.clone());
+	}
 	for (id, triangles, seconds) in &result.built {
 		println!("  {id:40} {triangles:6} tris  {:7.1} ms", seconds * 1000.0);
 	}

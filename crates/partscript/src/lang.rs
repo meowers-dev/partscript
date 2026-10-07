@@ -21,15 +21,22 @@ pub struct PartScriptError {
 	pub message: String,
 	pub file: String,
 	pub line: usize,
+	/// where the Python original stopped altogether (an OverflowError, say): the build goes no further
+	pub fatal: bool,
 }
 
 impl PartScriptError {
 	pub fn new(message: impl Into<String>, file: &str, line: usize) -> Self {
-		PartScriptError { message: message.into(), file: file.to_string(), line }
+		PartScriptError { message: message.into(), file: file.to_string(), line, fatal: false }
 	}
 
 	pub fn bare(message: impl Into<String>) -> Self {
-		PartScriptError { message: message.into(), file: String::new(), line: 0 }
+		PartScriptError { message: message.into(), file: String::new(), line: 0, fatal: false }
+	}
+
+	/// An error that ends the whole build, as an exception the Python original never caught did.
+	pub fn fatal(message: impl Into<String>) -> Self {
+		PartScriptError { fatal: true, ..PartScriptError::bare(message) }
 	}
 }
 

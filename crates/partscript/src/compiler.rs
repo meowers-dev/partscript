@@ -72,6 +72,18 @@ impl From<&str> for Fail {
 
 pub type CResult<T> = Result<T, Fail>;
 
+/// int(x) for a float, as Python does it: towards zero; NaN is an error for the line, and infinity
+/// (an OverflowError the original never caught) ends the build.
+pub fn py_int(v: f64) -> CResult<i64> {
+	if v.is_nan() {
+		return Err(Fail::Value("cannot convert float NaN to integer".into()));
+	}
+	if v.is_infinite() {
+		return Err(Fail::Script(PartScriptError::fatal("OverflowError: cannot convert float infinity to integer")));
+	}
+	Ok(v.trunc() as i64)
+}
+
 /// A piece a building or a chain places: its faces in its own space, the snaps it declares, its open ends.
 pub struct Piece {
 	pub faces: Vec<Face>,
@@ -1094,7 +1106,7 @@ impl Compiler {
 			return Err(format!("not enough values to unpack (expected 5, got {})", values.len()).into());
 		}
 		let (cx, cz, radius, a0, a1) = (values[0], values[1], values[2], values[3], values[4]);
-		let steps = if values.len() > 5 { values[5] as i64 } else { 12 };
+		let steps = if values.len() > 5 { py_int(values[5])? } else { 12 };
 		Ok((0..=steps)
 			.map(|k| {
 				let angle = (a0 + (a1 - a0) * k as f64 / steps as f64).to_radians();
@@ -1143,7 +1155,7 @@ impl Compiler {
 		let mut names = Vec::new();
 		for token in &stmt.args {
 			let (name, count) = token.split_once('*').unwrap_or((token, ""));
-			let n = if count.is_empty() { 1 } else { evaluate(count, env)? as i64 };
+			let n = if count.is_empty() { 1 } else { py_int(evaluate(count, env)?)? };
 			for _ in 0..n.max(0) {
 				names.push(name.to_string());
 			}
@@ -1279,7 +1291,7 @@ impl Compiler {
 			return run;
 		}
 		let radius = evaluate(o.get("radius").map(String::as_str).unwrap_or(".025"), env)?;
-		let sides = evaluate(o.get("s").map(String::as_str).unwrap_or("6"), env)? as i64;
+		let sides = py_int(evaluate(o.get("s").map(String::as_str).unwrap_or("6"), env)?)?;
 		let bulge = match o.get("bulge") {
 			Some(b) => evaluate(b, env)?,
 			None => 0.06f64.max(0.2f64.min(gap * 0.5)),
@@ -1616,7 +1628,7 @@ impl Compiler {
 				p.push_at(centre, rotation);
 				p.push_at([0.0; 3], axis_rot);
 				let default_sides = if op == "tube" { "12" } else if op == "c" { "10" } else { "8" };
-				let sides = num(o.get("s").map(String::as_str).unwrap_or(default_sides))? as i64;
+				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or(default_sides))?)?;
 				let sides = sides.max(0) as usize;
 				if op == "tube" {
 					let h = height / 2.0;
@@ -1643,7 +1655,7 @@ impl Compiler {
 			}
 			"sph" => {
 				let radius = num(arg(a, 1)?)?;
-				let rings = num(o.get("rings").map(String::as_str).unwrap_or("6"))? as i64;
+				let rings = py_int(num(o.get("rings").map(String::as_str).unwrap_or("6"))?)?;
 				let profile: Vec<[f64; 2]> = (0..=rings)
 					.map(|k| {
 						let angle = std::f64::consts::PI * k as f64 / rings as f64;
@@ -1651,7 +1663,7 @@ impl Compiler {
 					})
 					.collect();
 				let material = mat(arg(a, 2)?)?;
-				let sides = num(o.get("s").map(String::as_str).unwrap_or("10"))? as i64;
+				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or("10"))?)?;
 				let center = self.centre(arg(a, 0)?, env, [radius; 3])?;
 				p.lathe(&profile, &material, sides.max(0) as usize, center, [0.0, std::f64::consts::TAU], false, rotation);
 			}
@@ -1682,14 +1694,14 @@ impl Compiler {
 					None => [0.0, std::f64::consts::TAU],
 				};
 				let material = mat(arg(a, 1)?)?;
-				let sides = num(o.get("s").map(String::as_str).unwrap_or("16"))? as i64;
+				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or("16"))?)?;
 				let center = self.vec3(arg(a, 0)?, env)?;
 				p.lathe(&profile, &material, sides.max(0) as usize, center, arc, flag("cap"), rotation);
 			}
 			"pipe" | "sweep" => {
 				let (profile, from) = if op == "pipe" {
 					let radius = num(arg(a, 1)?)?;
-					let sides = num(o.get("s").map(String::as_str).unwrap_or("6"))? as i64;
+					let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or("6"))?)?;
 					let profile: Vec<[f64; 2]> = (0..sides)
 						.map(|k| {
 							let angle = std::f64::consts::TAU * k as f64 / sides as f64;
@@ -1742,7 +1754,7 @@ impl Compiler {
 					Some(v) => num(v)?,
 					None => height - span / 2.0,
 				};
-				let steps = num(o.get("s").map(String::as_str).unwrap_or("12"))? as i64;
+				let steps = py_int(num(o.get("s").map(String::as_str).unwrap_or("12"))?)?;
 				let (hw, ho) = (width / 2.0, span / 2.0);
 				let (y0, y1) = (cy, cy + thick);
 				let arc: Vec<(f64, f64)> = (0..=steps)
@@ -1794,7 +1806,7 @@ impl Compiler {
 				let [cx, cy, cz] = self.vec3(arg(a, 0)?, env)?;
 				let (span, depth, rise) = (num(arg(a, 1)?)?, num(arg(a, 2)?)?, num(arg(a, 3)?)?);
 				let material = mat(arg(a, 4)?)?;
-				let steps = num(o.get("s").map(String::as_str).unwrap_or("12"))? as i64;
+				let steps = py_int(num(o.get("s").map(String::as_str).unwrap_or("12"))?)?;
 				let (half, y0, y1) = (span / 2.0, cy - depth / 2.0, cy + depth / 2.0);
 				let ring: Vec<(f64, f64)> = (0..=steps)
 					.map(|k| {
@@ -1847,7 +1859,7 @@ impl Compiler {
 				if let Some(wrap) = o.get("wrap") {
 					let radius = num(wrap)?;
 					let height = num(arg(a, 2)?)?;
-					let sides = num(o.get("sides").map(String::as_str).unwrap_or("12"))? as i64;
+					let sides = py_int(num(o.get("sides").map(String::as_str).unwrap_or("12"))?)?;
 					p.wrapped_panel(center, radius, height, &key, sides.max(0) as usize, rotation)?;
 				} else {
 					let (width, height) = (num(arg(a, 1)?)?, num(arg(a, 2)?)?);
@@ -1856,8 +1868,8 @@ impl Compiler {
 			}
 			"torus" => {
 				let (radius, thick) = (num(arg(a, 1)?)?, num(arg(a, 2)?)?);
-				let sides = num(o.get("s").map(String::as_str).unwrap_or("16"))? as i64;
-				let rings = num(o.get("rings").map(String::as_str).unwrap_or("6"))? as i64;
+				let sides = py_int(num(o.get("s").map(String::as_str).unwrap_or("16"))?)?;
+				let rings = py_int(num(o.get("rings").map(String::as_str).unwrap_or("6"))?)?;
 				let profile: Vec<[f64; 2]> = (0..rings)
 					.map(|k| {
 						let angle = std::f64::consts::TAU * k as f64 / rings as f64;
@@ -1932,7 +1944,7 @@ impl Compiler {
 			let w = evaluate(size, env)?;
 			[w, w]
 		};
-		let counts: Vec<i64> = split_top(o.get("cells").map(String::as_str).unwrap_or("16"), ',').iter().map(|v| evaluate(v, env).map(|x| x as i64)).collect::<Result<_, _>>()?;
+		let counts: Vec<i64> = split_top(o.get("cells").map(String::as_str).unwrap_or("16"), ',').iter().map(|v| -> CResult<i64> { py_int(evaluate(v, env)?) }).collect::<Result<_, _>>()?;
 		let (nx, ny) = (counts[0], counts[counts.len() - 1]);
 		if !((1..=96).contains(&nx) && (1..=96).contains(&ny)) {
 			return Err(PartScriptError::new("terrain cells=N or N,M: 1-96 a side", &stmt.file, stmt.line).into());
@@ -2037,10 +2049,10 @@ impl Compiler {
 		p.push_at([0.0; 3], rotation);
 		let material = mat(arg(a, 3)?)?;
 		if op == "cone" {
-			let sides = evaluate(o.get("s").map(String::as_str).unwrap_or("8"), env)? as i64;
+			let sides = py_int(evaluate(o.get("s").map(String::as_str).unwrap_or("8"), env)?)?;
 			p.cone([0.0; 3], radius, length, &material, sides.max(0) as usize, [0.0; 3]);
 		} else {
-			let sides = evaluate(o.get("s").map(String::as_str).unwrap_or("10"), env)? as i64;
+			let sides = py_int(evaluate(o.get("s").map(String::as_str).unwrap_or("10"), env)?)?;
 			let radius_top = match o.get("rt") {
 				Some(t) => Some(evaluate(t, env)?),
 				None => None,
@@ -2060,7 +2072,7 @@ impl Compiler {
 	/// smooth=N: a curve through the points, N pieces between each pair.
 	fn smooth(&self, points: Vec<V3>, o: &Ordered<String>, env: &Env) -> CResult<Vec<V3>> {
 		let Some(s) = o.get("smooth") else { return Ok(points) };
-		let steps = evaluate(s, env)? as i64;
+		let steps = py_int(evaluate(s, env)?)?;
 		Ok(smooth_points(&points, steps.max(0) as usize, matches!(o.get("closed").map(String::as_str), Some("1") | Some("true"))))
 	}
 
