@@ -56,7 +56,7 @@ pub fn path_frames(points: &[Vec<f64>], every: f64, fit: bool, corners: bool, cl
 	let mut out = Vec::new();
 	if joints {
 		for (k, (((a, b), &length), &yaw)) in segments.iter().zip(&lengths).zip(&headings).enumerate() {
-			let count = if fit { (py::round(length / every) as i64).max(1) } else { (py::floordiv(length, every).unwrap() as i64).max(1) };
+			let count = if fit { pieces(py::round(length / every))?.max(1) } else { pieces(py::floordiv(length, every).unwrap())?.max(1) };
 			let step = if fit { length / count as f64 } else { every };
 			let last = if k == segments.len() - 1 && !closed { count } else { count - 1 };
 			for n in 0..=last {
@@ -68,7 +68,7 @@ pub fn path_frames(points: &[Vec<f64>], every: f64, fit: bool, corners: bool, cl
 	}
 	if fit {
 		for (k, (((a, b), &length), &yaw)) in segments.iter().zip(&lengths).zip(&headings).enumerate() {
-			let count = (py::round(length / every) as i64).max(1);
+			let count = pieces(py::round(length / every))?.max(1);
 			let step = length / count as f64;
 			for n in 0..count {
 				let t = if length != 0.0 { (n as f64 + 0.5) * step / length } else { 0.0 };
@@ -78,6 +78,9 @@ pub fn path_frames(points: &[Vec<f64>], every: f64, fit: bool, corners: bool, cl
 		return Ok(out);
 	}
 	let total = py::sum(lengths.iter().copied());
+	if total / every > MAX_PIECES {
+		return Err(too_many());
+	}
 	let mut distance = every / 2.0;
 	while distance <= total + 1e-9 {
 		let mut walked = distance;
@@ -92,6 +95,24 @@ pub fn path_frames(points: &[Vec<f64>], every: f64, fit: bool, corners: bool, cl
 		distance += every;
 	}
 	Ok(out)
+}
+
+/// The most pieces a path is cut into: past this the build would not finish (an error instead).
+const MAX_PIECES: f64 = 100_000.0;
+
+fn too_many() -> String {
+	format!("along a path: more than {MAX_PIECES} pieces (every= is too small for the path)")
+}
+
+/// int() of a piece count, as Python took it (NaN an error), refused past MAX_PIECES.
+fn pieces(n: f64) -> Result<i64, String> {
+	if n.is_nan() {
+		return Err("cannot convert float NaN to integer".into());
+	}
+	if n > MAX_PIECES {
+		return Err(too_many());
+	}
+	Ok(n as i64)
 }
 
 const KIND_COLOURS: [&str; 6] = ["ffd84a", "4ad8ff", "ff6a4a", "8aff6a", "d86aff", "ffffff"];

@@ -488,6 +488,10 @@ pub fn is_mod(token: &str) -> bool {
 }
 
 /// The copy counts of a *N / *AxB / *(expr) modifier.
+/// The most copies one line makes, and the biggest count (sides, rings, cells...) read: past this a
+/// build would not finish (the Python original ran out of time or memory); it is an error instead.
+pub const MAX_COUNT: i64 = 100_000;
+
 pub fn counts(text: &str, env: &Env) -> Result<Vec<i64>, String> {
 	let mut out = Vec::new();
 	for item in split_top(text, 'x') {
@@ -496,7 +500,11 @@ pub fn counts(text: &str, env: &Env) -> Result<Vec<i64>, String> {
 		if value < 0.0 || value.is_nan() {
 			return Err(format!("copy count {item} = {}", py::repr(value)));
 		}
-		out.push(py::round(value) as i64);
+		let n = py::round(value);
+		if n > MAX_COUNT as f64 {
+			return Err(format!("copy count {item} = {}: more than {MAX_COUNT} copies", py::repr(value)));
+		}
+		out.push(n as i64);
 	}
 	Ok(out)
 }

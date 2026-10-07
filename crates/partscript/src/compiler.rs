@@ -20,7 +20,7 @@ use crate::expr::{evaluate, evaluate_number, interpolate, is_dynamic, pick_optio
 use crate::host::Host;
 use crate::lang::{
 	arg_value, colour_key, colour_mat, counts, expand_points, is_identifier_lower, material_items, parse_mod, sign_key, split_top, unquote, Macro, Mod,
-	PartScriptError, Program, Prop, Stmt, BUILD_OPS, USE_OPTIONS,
+	PartScriptError, Program, Prop, MAX_COUNT, Stmt, BUILD_OPS, USE_OPTIONS,
 };
 use crate::ordered::Ordered;
 use crate::textures::Recipe;
@@ -91,7 +91,18 @@ pub fn py_int(v: f64) -> CResult<i64> {
 	if v.is_infinite() {
 		return Err(Fail::Script(PartScriptError::fatal("OverflowError: cannot convert float infinity to integer")));
 	}
+	if v.trunc() > MAX_COUNT as f64 {
+		return Err(Fail::Value(format!("{}: more than {MAX_COUNT}", py::repr(v))));
+	}
 	Ok(v.trunc() as i64)
+}
+
+/// mats.len() copies times another factor, refused past MAX_COUNT before it is made.
+fn copy_limit(have: usize, factor: f64) -> CResult<()> {
+	if have as f64 * factor > MAX_COUNT as f64 {
+		return Err(Fail::Value(format!("{} copies: more than {MAX_COUNT}", have as f64 * factor)));
+	}
+	Ok(())
 }
 
 /// A piece a building or a chain places: its faces in its own space, the snaps it declares, its open ends.
@@ -1456,6 +1467,7 @@ impl Compiler {
 			match parse_mod(token) {
 				Some(Mod::Repeat(count_text, step_text)) => {
 					let cs = counts(&count_text, env)?;
+					copy_limit(mats.len(), cs.iter().map(|&c| c.max(0) as f64).product())?;
 					let offsets: Vec<V3> = if cs.len() == 1 {
 						let step = match &step_text {
 							Some(s) => self.vec3(s, env)?,
@@ -1504,16 +1516,19 @@ impl Compiler {
 				}
 				Some(Mod::Ring(count_text, deg_text)) => {
 					let n = counts(&count_text, env)?[0];
+					copy_limit(mats.len(), n as f64)?;
 					let deg = evaluate(&deg_text, env)?;
 					mats = (0..n).flat_map(|k| mats.iter().map(move |m| M4::rotation_named((deg * k as f64).to_radians(), 'Z').mul(m))).collect();
 				}
 				Some(Mod::Scatter(count_text, spec)) => {
 					let n = counts(&count_text, env)?[0];
+					copy_limit(mats.len(), n as f64)?;
 					let offsets = self.scatter(stmt, env, n, &spec)?;
 					mats = offsets.iter().flat_map(|off| mats.iter().map(move |m| M4::translation(*off).mul(m))).collect();
 				}
 				Some(Mod::On(count_text, spec)) => {
 					let n = counts(&count_text, env)?[0];
+					copy_limit(mats.len(), n as f64)?;
 					let spots = self.spread(stmt, env, n, &spec)?;
 					mats = spots.iter().flat_map(|spot| mats.iter().map(move |m| spot.mul(m))).collect();
 				}
@@ -1522,6 +1537,7 @@ impl Compiler {
 						let mut s = [1.0, 1.0, 1.0, 1.0];
 						s[axis] = -1.0;
 						let mirror = M4::diagonal(s);
+						copy_limit(mats.len(), 2.0)?;
 						let extra: Vec<M4> = mats.iter().map(|m| mirror.mul(m)).collect();
 						mats.extend(extra);
 					}
@@ -1530,7 +1546,9 @@ impl Compiler {
 		}
 		if stmt.opts.contains("along") {
 			let mut placed = Vec::new();
-			for frame in self.path_frames(stmt, env)? {
+			let frames = self.path_frames(stmt, env)?;
+			copy_limit(mats.len(), frames.len() as f64)?;
+			for frame in frames {
 				let mut mv = M4::translation(frame.pos).mul(&M4::rotation_named(frame.yaw.to_radians(), 'Z'));
 				if frame.stretch != 1.0 {
 					mv = mv.mul(&M4::diagonal([frame.stretch, 1.0, 1.0, 1.0]));

@@ -176,6 +176,17 @@ impl Snap {
 }
 
 /// A direction word (+x, back, up...) or an x,y,z vector evaluated by number().
+/// int(round(x)) as Python worked it out: a NaN or an infinity is an error.
+fn round_int(x: f64) -> Result<i64, String> {
+	if x.is_nan() {
+		return Err("cannot convert float NaN to integer".into());
+	}
+	if x.is_infinite() {
+		return Err("cannot convert float infinity to integer".into());
+	}
+	Ok(py::round(x) as i64)
+}
+
 pub fn parse_dir(text: &str, number: &mut dyn FnMut(&str) -> Result<f64, String>) -> Result<V, String> {
 	if let Some(d) = dirs(text) {
 		return Ok(d);
@@ -582,10 +593,10 @@ fn cells(text: &str, number: &mut dyn FnMut(&str) -> Result<f64, String>, what: 
 	let mut ranges: Vec<Vec<i64>> = Vec::new();
 	for part in parts {
 		if let Some((a, b)) = part.split_once("..") {
-			let (a, b) = (py::round(number(a)?) as i64, py::round(number(b)?) as i64);
+			let (a, b) = (round_int(number(a)?)?, round_int(number(b)?)?);
 			ranges.push((a.min(b)..=a.max(b)).collect());
 		} else {
-			ranges.push(vec![py::round(number(part)?) as i64]);
+			ranges.push(vec![round_int(number(part)?)?]);
 		}
 	}
 	let mut out = Vec::new();
@@ -672,9 +683,9 @@ pub fn plan(prop: &Prop, kit: Kit, number: &mut dyn FnMut(&str) -> Result<f64, S
 					if size.len() != 2 {
 						return Err(format!("room size {}: W,D in cells (3,2 is 12 x 8 m on a 4 m grid)", py::repr_str(&a[1])));
 					}
-					let (w, d) = (py::round(number(size[0])?) as i64, py::round(number(size[1])?) as i64);
-					let storeys = py::round(number(o.get("storeys").map(String::as_str).unwrap_or("1"))?) as i64;
-					let base = py::round(number(o.get("storey").map(String::as_str).unwrap_or("0"))?) as i64;
+					let (w, d) = (round_int(number(size[0])?)?, round_int(number(size[1])?)?);
+					let storeys = round_int(number(o.get("storeys").map(String::as_str).unwrap_or("1"))?)?;
+					let base = round_int(number(o.get("storey").map(String::as_str).unwrap_or("0"))?)?;
 					if w < 1 || d < 1 || !(1..=12).contains(&storeys) || base < 0 {
 						return Err(format!("room {} {}: width, depth and storeys from 1 (storeys up to 12), storey from 0", a[0], a[1]));
 					}
@@ -691,7 +702,7 @@ pub fn plan(prop: &Prop, kit: Kit, number: &mut dyn FnMut(&str) -> Result<f64, S
 					}
 					let storeys = match o.get("storey").map(String::as_str).unwrap_or("all") {
 						"all" => None,
-						text => Some(text.split(',').map(|v| number(v).map(|n| py::round(n) as i64)).collect::<Result<HashSet<_>, _>>()?),
+						text => Some(text.split(',').map(|v| number(v).and_then(round_int)).collect::<Result<HashSet<_>, _>>()?),
 					};
 					let sides: Option<HashSet<String>> = o.get("side").map(|s| s.split(',').map(str::to_string).collect());
 					if let Some(sides) = &sides {
@@ -705,7 +716,7 @@ pub fn plan(prop: &Prop, kit: Kit, number: &mut dyn FnMut(&str) -> Result<f64, S
 					if a.len() < 3 || side_dir(&a[1]).is_none() || !kind_ok(&a[2]) {
 						return Err(format!("open X,Y SIDE KIND [storey=0]: SIDE s n w e, KIND one of {}, none", walls_list()));
 					}
-					let storey = py::round(number(o.get("storey").map(String::as_str).unwrap_or("0"))?) as i64;
+					let storey = round_int(number(o.get("storey").map(String::as_str).unwrap_or("0"))?)?;
 					for cell in cells(&a[0], number, "open")? {
 						opens.insert((edge(cell, &a[1]), storey), (a[2].clone(), stmt.clone()));
 					}
@@ -725,7 +736,7 @@ pub fn plan(prop: &Prop, kit: Kit, number: &mut dyn FnMut(&str) -> Result<f64, S
 					if cell.len() != 1 {
 						return Err(format!("stair {}: one cell X,Y (its foot)", a[0]));
 					}
-					let storey = py::round(number(o.get("storey").map(String::as_str).unwrap_or("0"))?) as i64;
+					let storey = round_int(number(o.get("storey").map(String::as_str).unwrap_or("0"))?)?;
 					stairs.push(Stair { stmt: stmt.clone(), x: cell[0].0, y: cell[0].1, dir: direction, storey });
 				}
 				"roof" => {
