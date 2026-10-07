@@ -4,9 +4,13 @@ Reviewed 2026-10-07, starting at `c8c1fc6` on `rust`, including the existing web
 uncommitted fixes from this review. GitHub was private and its only published branch was `main`,
 at `81609a5` (the Python implementation).
 
-The local Rust source is ready for release review. Publication still needs the reviewed Rust and
-website changes landed on the default branch, followed by CI on that commit. Nothing was pushed,
-merged, deployed or made public during this review.
+Following approval on 2026-10-07, the reviewed Rust and website changes were committed as `82d9249`
+and fast-forwarded onto GitHub's default branch, `main`.
+[GitHub CI passed](https://github.com/meowers-dev/partscript/actions/runs/37607632944), including
+the workspace tests, generated references, examples, full site build and secret scan. Installing
+with `cargo install --locked --git https://github.com/meowers-dev/partscript partscript-cli`
+also succeeded; the installed CLI checked all 58 example props without errors or warnings.
+The repository remains private. No manual deployment or visibility change was performed.
 
 ## Fixed
 
@@ -42,16 +46,15 @@ merged, deployed or made public during this review.
 | Gitleaks 8.30.1 | No findings in reachable history or the candidate source tree, including decompressed reference fixtures |
 | [OSV](https://osv.dev/) advisory lookup | No known advisories returned for the 11 locked registry crates or three.js 0.170.0 |
 
-Native verification used Linux x86_64 with Rust/Cargo 1.91.1; browser verification used Chromium.
+Local native verification used Linux x86_64 with Rust/Cargo 1.91.1; browser verification used Chromium.
 Windows/macOS execution and a crates.io release were not tested. Dependency and secret scans are
 point-in-time checks, not guarantees against all vulnerabilities.
 
 ## Before publication
 
-- [ ] Review and commit the local changes, including the pre-existing website/theme/font changes.
-- [ ] Land the Rust implementation and those changes on GitHub's default branch and require passing
-  CI there. The documented `cargo install --git ...` follows the default branch, which currently
-  still contains Python.
+- [x] Review and commit the local changes, including the pre-existing website/theme/font changes.
+- [x] Land the Rust implementation and those changes on GitHub's default branch and verify passing
+  CI there. The documented `cargo install --git ...` now installs the Rust CLI from `main`.
 - [ ] Enable GitHub private vulnerability reporting when available. Its status could not be verified
   for the private repository (the API returned 404); the security policy includes a fallback.
 - [ ] Change repository visibility and deploy only after the release commit is approved.
