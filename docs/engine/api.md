@@ -69,6 +69,7 @@ Triangle counts are estimates (made without building): close, not exact.
 | `steps` | with `steps: true`: per top-level line, the faces it made |
 | `origins` | the `use` chain each face came through (`[(file, line), ...]`) |
 | `snaps`, `joints`, `links` | its snap points, where chained pieces met, its loose ends |
+| `nodes`, `rigged` | the node tree: each part (`name`, `parent`, its pivot `at`, the `baked` part it draws) and each mark (`mark: true`, its `rotation`); `rigged` when there are pivots, parents or marks ([moving parts](../language/moving.md)) |
 | `seconds` | how long it took |
 
 `steps: true` also tags every face in the `.glb` (`TEXCOORD_1`) with its line and its use chain, which is

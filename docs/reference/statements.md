@@ -70,7 +70,8 @@ A shape without `at=` stands at the origin. Pages: [shapes](../language/shapes.m
 | `row x\|y\|z\|-x... [gap=] [over=] [pack=start\|centre\|end] [align=...] [at=] [on=] {` ... `}` | copies end to end ([placing](../language/placing.md#row-and-stack)) |
 | `stack [gap=] ... {` ... `}` | a row going up |
 | `NAME = LINE` | name what a line makes |
-| `part NAME [smooth=1]` | start another mesh |
+| `part NAME [smooth=1] [pivot=C] [parent=PART]` | start another mesh; a pivot it turns about and a part it hangs from ([moving parts](../language/moving.md)) |
+| `mark NAME at=C [on=PART] [turn=X,Y,Z]` | a named point for a game (a muzzle, a grip): an empty node ([moving parts](../language/moving.md)) |
 | `size W,D,H` | expected bounds (warns when off by 15%) |
 | `card where= pairs= look= avoid= [what=] [notes=]` | the prop's library card |
 

@@ -27,6 +27,7 @@ pub const NAV: [(&str, &[(&str, &str)]); 6] = [
 			("language/reuse.md", "Parts made of parts"),
 			("language/placing.md", "Placing by name"),
 			("language/shaping.md", "Bending and curving"),
+			("language/moving.md", "Moving parts"),
 		],
 	),
 	("Places", &[("language/generators.md", "Terrain, ruins, drop and grow"), ("language/paths.md", "Paths, snaps and links"), ("language/buildings.md", "Buildings")]),

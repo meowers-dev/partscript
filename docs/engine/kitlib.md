@@ -67,6 +67,21 @@ Points and vectors are `[f64; 3]` (`kitlib::maths::V3`).
   variation), and returns a `Baked` ready to write.
 - `glb_bytes(asset_id, &baked_parts, &materials, &textures, steps, material_prefix)` returns
   `(bytes, missing textures)`.
+- `glb_scene(&baked_parts, &scene, &materials, &textures, steps, material_prefix)` writes a `Scene`: its
+  `nodes` in order (`SceneNode`: name, parent, translation, rotation, scale, and a `SceneMesh`, either one
+  baked part written from an origin or several skinned whole to joints), its `skins` (joints and the
+  skeleton root; the inverse bind matrices come from the nodes' rest transforms) and its `clips`. Nodes
+  with no parent are the scene's roots.
+
+## kitlib::anim
+
+What a `.glb` animates, already sampled: a `Clip` (name, length, `tracks`, `events`, more `extras`) holds
+`Track`s, each the `Key`s (time and value) of one `Channel` (translation, rotation or scale) of one node,
+filled between keys by an `Interp` (`Linear` or `Step`). Values are in the authoring axes, rotations as
+quaternions (x, y, z, w); the writer turns them into glTF's. Events (`Event`: a time, a name and any data)
+are written to the animation's `extras` as `{"events": [{"t": .4, "name": "eject_casing", ...}]}`.
+Quaternion helpers: `quat_euler` (PartScript's `turn=` order), `quat_axis_angle`, `quat_mul`,
+`quat_slerp`, `quat_rotate`, `quat_matrix` and `quat_from_matrix`.
 - `encode_png(pixels, width, height, channels, level)` and `decode_png(bytes)` read and write the PNGs.
 
 ## kitlib::maths

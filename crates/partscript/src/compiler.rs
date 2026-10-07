@@ -140,6 +140,19 @@ impl Ctx {
 	}
 }
 
+/// A named point a host hangs things on (a muzzle, a hand grip, where a casing leaves): an empty node in the
+/// .glb, riding on a part when on= names one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Mark {
+	pub name: String,
+	/// in prop space
+	pub at: V3,
+	pub rotation: kitlib::anim::Quat,
+	pub on: Option<String>,
+	pub file: Rc<str>,
+	pub line: usize,
+}
+
 pub struct Compiler {
 	pub program: Rc<Program>,
 	pub host: Rc<Host>,
@@ -158,6 +171,8 @@ pub struct Compiler {
 	foreign_links: HashMap<String, Vec<Snap>>,
 	/// snap statements land here while it is Some
 	pub snap_sink: Option<Vec<Snap>>,
+	/// the marks of the prop being built (a prop pulled in with use keeps its own)
+	pub marks: Vec<Mark>,
 	plans: HashMap<usize, Rc<Plan>>,
 	pieces: HashMap<String, Rc<Piece>>,
 	pub warnings: Vec<String>,
@@ -188,6 +203,7 @@ impl Compiler {
 			last_links: Vec::new(),
 			foreign_links: HashMap::new(),
 			snap_sink: None,
+			marks: Vec::new(),
 			plans: HashMap::new(),
 			pieces: HashMap::new(),
 			warnings: Vec::new(),
@@ -600,8 +616,10 @@ impl Compiler {
 	/// Another prop pulled in with use: built whole, its joints its own.
 	fn build_used(&mut self, prop: &Rc<Prop>, asset_id: &str) -> CResult<Vec<Part>> {
 		let saved = std::mem::take(&mut self.joints);
+		let marks = std::mem::take(&mut self.marks);
 		let result = self.trace(prop, asset_id, None);
 		self.joints = saved;
+		self.marks = marks;
 		let (parts, _) = result?;
 		Ok(parts.into_iter().filter(|p| !p.faces.is_empty()).collect())
 	}
@@ -737,7 +755,23 @@ impl Compiler {
 				let name = a.first().cloned().unwrap_or_else(|| format!("{}_{}", prop.name, parts.len()));
 				let mut part = self.new_part(&name);
 				part.smooth = matches!(o.get("smooth").map(String::as_str), Some("1") | Some("true"));
+				if let Some(pivot) = o.get("pivot") {
+					part.pivot = Some(frame.point(self.vec3(pivot, env)?));
+				}
+				part.parent = o.get("parent").cloned();
 				parts.push(part);
+				return Ok(());
+			}
+			"mark" => {
+				let name = arg(a, 0)?.to_string();
+				let at = self.vec3(o.get("at").map(String::as_str).unwrap_or("0,0,0"), env)?;
+				let turn = match o.get("turn").or_else(|| o.get("r")) {
+					Some(t) => self.vec3(t, env)?,
+					None => [0.0; 3],
+				};
+				let m = frame.mul(&M4::translation(at)).mul(&rot(turn).to_4x4());
+				let rotation = kitlib::anim::quat_from_matrix(&m.to_3x3());
+				self.marks.push(Mark { name, at: m.to_translation(), rotation, on: o.get("on").cloned(), file: stmt.file.clone(), line: stmt.line });
 				return Ok(());
 			}
 			_ => {}
@@ -892,7 +926,7 @@ impl Compiler {
 				}
 				continue;
 			}
-			if matches!(child.op.as_str(), "part" | "snap" | "size" | "card" | "join" | "link" | "chain") || BUILD_OPS.contains(&child.op.as_str()) || !child.name.is_empty() {
+			if matches!(child.op.as_str(), "part" | "mark" | "snap" | "size" | "card" | "join" | "link" | "chain") || BUILD_OPS.contains(&child.op.as_str()) || !child.name.is_empty() {
 				let what = if child.name.is_empty() { format!("'{}'", child.op) } else { format!("{} = ...", child.name) };
 				return Err(PartScriptError::new(format!("{what} can't go in a row or stack (name the row itself: books = row x ...)"), &child.file, child.line).into());
 			}

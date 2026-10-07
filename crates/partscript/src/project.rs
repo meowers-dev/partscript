@@ -14,7 +14,9 @@ use std::rc::Rc;
 
 use kitlib::bake::{bake, Baked};
 use kitlib::geom::Part;
-use kitlib::gltf::glb_bytes;
+use kitlib::anim::{Quat, QUAT_IDENTITY};
+use kitlib::gltf::{glb_bytes, glb_scene, Scene, SceneMesh, SceneNode};
+use kitlib::maths::{sub, V3};
 use kitlib::json::Json;
 use kitlib::paths::{kind_colour, snap_markers, Marker};
 
@@ -219,6 +221,21 @@ pub fn parts_files(paths: &[impl AsRef<Path>]) -> Vec<PathBuf> {
 	out
 }
 
+/// A node of a built prop: a part at its pivot, or a mark.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Node {
+	pub name: String,
+	/// the part it hangs from (None: the prop's root)
+	pub parent: Option<String>,
+	/// where it sits, in prop space: a part's pivot (the origin when it has none), a mark's point
+	pub at: V3,
+	/// a mark's turn (parts sit unturned)
+	pub rotation: Quat,
+	/// the baked part it draws (an index into Built::baked); None for a mark or a part with no shapes
+	pub baked: Option<usize>,
+	pub mark: bool,
+}
+
 /// One prop, built.
 pub struct Built {
 	pub asset_id: String,
@@ -236,6 +253,10 @@ pub struct Built {
 	pub baked: Vec<Baked>,
 	/// every face's use chain ((file, line), ...); a face's TEXCOORD_1.y indexes it
 	pub origins: Vec<Vec<(String, usize)>>,
+	/// the node tree: every part (a pivot and parent when it has them) and every mark, in the order written
+	pub nodes: Vec<Node>,
+	/// whether the prop has pivots, parents or marks (its .glb is then a node tree under the prop's root)
+	pub rigged: bool,
 	pub glb: Vec<u8>,
 	pub seconds: f64,
 }
@@ -372,7 +393,8 @@ impl Project {
 		compiler.joints = Vec::new();
 		let warnings_before = compiler.warnings.len();
 		let traced = compiler.trace(&prop, &asset_id, options.seed.as_deref());
-		let declared = compiler.snap_sink.take().unwrap_or_default();
+		let snaps = compiler.snap_sink.take().unwrap_or_default();
+		let marks = std::mem::take(&mut compiler.marks);
 		let (parts, raw_steps) = match traced {
 			Ok(r) => r,
 			Err(Fail::Script(e)) => return Err(e),
@@ -387,6 +409,10 @@ impl Project {
 				}
 			}
 		}
+		let rigged = !marks.is_empty() || parts.iter().any(|p| p.pivot.is_some() || p.parent.is_some());
+		// every part's node (a rig keeps a part with no shapes as an empty node, for its children to hang from)
+		let declared: Vec<(String, Option<V3>, Option<String>, bool)> =
+			parts.iter().map(|p| (p.name.clone(), p.pivot, p.parent.clone(), !p.faces.is_empty())).collect();
 		let (mut parts, face_steps): (Vec<Part>, Vec<Vec<i64>>) = parts.into_iter().zip(face_steps).filter(|(p, _)| !p.faces.is_empty()).unzip();
 		finish_parts(&prop, &mut parts);
 		let ao_height = match prop.opt("ao") {
@@ -415,16 +441,40 @@ impl Project {
 		if triangles > budget {
 			warnings.push(format!("{asset_id}: {triangles} triangles, over the {budget} budget"));
 		}
-		if options.snaps && (!declared.is_empty() || !joints.is_empty() || !links.is_empty()) {
-			let markers: Vec<Marker> = declared.iter().chain(&joints).chain(&links).map(|s| Marker { pos: s.pos, dir: s.dir, kind: s.kind.clone() }).collect();
+		if options.snaps && (!snaps.is_empty() || !joints.is_empty() || !links.is_empty()) {
+			let markers: Vec<Marker> = snaps.iter().chain(&joints).chain(&links).map(|s| Marker { pos: s.pos, dir: s.dir, kind: s.kind.clone() }).collect();
 			let mut material_of = |kind: &str| marker_material(&host, kind);
 			baked.push(bake(&snap_markers(&markers, &mut material_of, 0.06), 0.0, None));
+		}
+		let mut nodes = Vec::new();
+		let mut drawn = 0;
+		for (name, pivot, parent, has_faces) in &declared {
+			if !has_faces && !(rigged && (pivot.is_some() || parent.is_some() || declared.iter().any(|d| d.2.as_deref() == Some(name.as_str())))) {
+				continue;
+			}
+			let index = if *has_faces {
+				drawn += 1;
+				Some(drawn - 1)
+			} else {
+				None
+			};
+			nodes.push(Node { name: name.clone(), parent: parent.clone(), at: pivot.unwrap_or([0.0; 3]), rotation: QUAT_IDENTITY, baked: index, mark: false });
+		}
+		for mark in &marks {
+			nodes.push(Node { name: mark.name.clone(), parent: mark.on.clone(), at: mark.at, rotation: mark.rotation, baked: None, mark: true });
+		}
+		if rigged {
+			warnings.extend(pivot_warnings(&asset_id, &nodes, &parts));
 		}
 		let mut glb = Vec::new();
 		if options.glb {
 			let materials = host.materials.borrow().clone();
 			let textures = |name: &str| host.texture_png(name);
-			let (data, missing) = glb_bytes(&asset_id, &baked, &materials, &textures, options.steps, "");
+			let (data, missing) = if rigged {
+				glb_scene(&baked, &rig_scene(&asset_id, &nodes), &materials, &textures, options.steps, "")
+			} else {
+				glb_bytes(&asset_id, &baked, &materials, &textures, options.steps, "")
+			};
 			glb = data;
 			warnings.extend(missing.iter().map(|name| format!("{asset_id}: texture {name} could not be made; shown grey")));
 		}
@@ -434,7 +484,7 @@ impl Project {
 			Some(kitlib::py::Fault::Fatal(message)) => return Err(PartScriptError::fatal(message)),
 			None => {}
 		}
-		Ok(Built { asset_id, parts, steps: raw_steps, snaps: declared, joints, links, warnings, baked, origins, glb, seconds: clock() - started })
+		Ok(Built { asset_id, parts, steps: raw_steps, snaps, joints, links, warnings, baked, origins, nodes, rigged, glb, seconds: clock() - started })
 	}
 
 	/// Build and write out_dir/<id>.glb.
@@ -553,6 +603,53 @@ fn copies(stmt: &Stmt) -> i64 {
 		let _ = parse_mod(m).map(|m| matches!(m, Mod::Repeat(..)));
 	}
 	count
+}
+
+/// The scene a rigged prop writes: a root node named for the asset, then each part's node at its pivot
+/// (its corners written from there) under its parent's, and each mark as an empty node.
+pub fn rig_scene(asset_id: &str, nodes: &[Node]) -> Scene {
+	let mut scene = Scene::default();
+	scene.nodes.push(SceneNode::new(asset_id, None));
+	let index_of = |name: &str| nodes.iter().position(|n| !n.mark && n.name == name);
+	for (k, node) in nodes.iter().enumerate() {
+		// a parent that is not a part, or a circle of parents, leaves the node on the root (check reports both)
+		let mut parent = node.parent.as_deref().and_then(index_of);
+		let mut seen = vec![k];
+		let mut walk = parent;
+		while let Some(p) = walk {
+			if seen.contains(&p) {
+				parent = None;
+				break;
+			}
+			seen.push(p);
+			walk = nodes[p].parent.as_deref().and_then(index_of);
+		}
+		let base = parent.map(|p| nodes[p].at).unwrap_or([0.0; 3]);
+		let mut scene_node = SceneNode::new(&node.name, Some(parent.map(|p| p + 1).unwrap_or(0)));
+		scene_node.translation = sub(node.at, base);
+		scene_node.rotation = node.rotation;
+		scene_node.mesh = node.baked.map(|b| SceneMesh::Part { baked: b, origin: node.at });
+		scene.nodes.push(scene_node);
+	}
+	scene
+}
+
+/// A pivot well away from its part's shapes is most likely a typo (a sign, a decimal point).
+fn pivot_warnings(asset_id: &str, nodes: &[Node], parts: &[Part]) -> Vec<String> {
+	let mut out = Vec::new();
+	for node in nodes {
+		let Some(b) = node.baked else { continue };
+		if node.at == [0.0; 3] {
+			continue;
+		}
+		let (lo, hi) = parts[b].bounds();
+		let reach = (0..3).map(|k| hi[k] - lo[k]).fold(0.0f64, f64::max) * 0.5 + 0.05;
+		let outside = (0..3).map(|k| (lo[k] - node.at[k]).max(node.at[k] - hi[k]).max(0.0)).fold(0.0f64, f64::max);
+		if outside > reach {
+			out.push(format!("{asset_id}: part {}'s pivot is {} m outside its shapes", node.name, kitlib::py::round_to(outside, 3)));
+		}
+	}
+	out
 }
 
 /// A lit colour material for snap markers of a kind (matching kinds share a colour).

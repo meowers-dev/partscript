@@ -15,6 +15,17 @@ Files are written Z up with +Y back (Blender's axes). The `.glb` is glTF's Y up 
   child node per mesh.
 - With snaps on (`build(..., snaps=True)`), the snap markers are a child mesh named `snaps`.
 
+A prop with [moving parts](../language/moving.md) (any `pivot=`, `parent=` or `mark`) is a node tree
+instead, under a root node named after the asset id:
+
+- each part is a node at its pivot (its `translation`, relative to its parent's pivot), hung under its
+  parent's node or the root; its mesh's corners are written relative to the pivot;
+- a part with a pivot but no shapes is a node with no mesh;
+- each mark is an empty node (no mesh) at its point, with its turn as the node's `rotation`, under the
+  part it is `on=` or the root.
+
+Godot imports this as `Node3D`s and `MeshInstance3D`s named after the parts and marks, ready to move.
+
 ## Meshes and materials
 
 Each mesh has a primitive per material. Corners are not shared between faces (flat shading), except in a

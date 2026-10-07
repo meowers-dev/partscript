@@ -512,7 +512,7 @@ pub const BUILD_OPS: [&str; 7] = ["room", "open", "walls", "stair", "roof", "att
 pub const SHAPES: [&str; 41] = [
 	"b", "bb", "bx", "c", "cone", "sph", "tube", "wedge", "lathe", "ext", "pipe", "sweep", "face", "pan", "trim", "sign", "use", "at", "set",
 	"part", "size", "vault", "archwall", "card", "snap", "chain", "torus", "frame", "link", "join", "row", "terrain", "room", "open", "walls",
-	"stair", "roof", "attach", "place", "", "",
+	"stair", "roof", "attach", "place", "mark", "",
 ];
 
 pub fn is_shape(op: &str) -> bool {

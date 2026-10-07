@@ -61,6 +61,8 @@ SHAPES (M = material)
                                               provides (pack__id) as a building block
   at   C [r=] [s=] {  ...  }              move/turn/scale a group
   part NAME [smooth=1]                    start another mesh in the same prop (smooth = organic shading)
+       [pivot=X,Y,Z] [parent=PART]        where its node sits and turns, and the part it hangs from (moving parts)
+  mark NAME at=C [on=PART] [turn=X,Y,Z]   a named point that draws nothing (Muzzle, RightHandGrip): an empty node
   size W,D,H                              expected bounds: the build warns when they differ by >15 %
   card where="..." pairs="a, b" look="..." avoid="..." [what="..."]   its prop library card (what defaults to desc)
 

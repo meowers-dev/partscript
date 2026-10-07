@@ -1,5 +1,7 @@
-//! kitlib: low-poly geometry, baking and a .glb writer. PartScript compiles to it.
+//! kitlib: low-poly geometry, baking and a .glb writer (meshes, node trees, skins and animation). PartScript
+//! compiles to it.
 
+pub mod anim;
 pub mod bake;
 pub mod geom;
 pub mod gltf;
