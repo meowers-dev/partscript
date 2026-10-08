@@ -23,7 +23,8 @@ pub use check::{check, Report};
 pub use expr::evaluate;
 pub use host::{Embed, Host};
 pub use lang::{parse, tokenize, PartScriptError, Program};
-pub use project::{load_program, BuildOptions, Built, Project, PropInfo};
+pub use compiler::Mark;
+pub use project::{load_program, rig_scene, BuildOptions, Built, Node, Project, PropInfo};
 pub use reference::REFERENCE;
 pub use textures::{BasicProvider, Image, Recipe, TextureProvider, TextureStore};
 

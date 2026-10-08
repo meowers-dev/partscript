@@ -106,6 +106,10 @@ pub struct Part {
 	pub uv_scale: f64,
 	pub ao_height: Option<f64>,
 	pub lead_material: Option<String>,
+	/// where the part's node sits and turns, in prop space (part NAME pivot=): None keeps it at the origin
+	pub pivot: Option<V3>,
+	/// the part its node hangs from (part NAME parent=): None is the prop's root
+	pub parent: Option<String>,
 }
 
 pub struct FaceSpec {
@@ -133,6 +137,8 @@ impl Part {
 			uv_scale: 1.0,
 			ao_height: None,
 			lead_material: None,
+			pivot: None,
+			parent: None,
 		}
 	}
 

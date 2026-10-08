@@ -11,7 +11,8 @@ use crate::bake::{smooth_normals, Baked};
 use crate::geom::Mat;
 use crate::hash::crc32;
 use crate::json::Json;
-use crate::maths::{cross, normalized, sub};
+use crate::anim::{gltf_quat, gltf_scale, gltf_vec, trs_matrix, Clip, Quat, QUAT_IDENTITY};
+use crate::maths::{cross, normalized, sub, M4, V3};
 
 const FLOAT: i64 = 5126;
 const USHORT: i64 = 5123;
@@ -53,6 +54,13 @@ fn emission(spec: &Mat) -> Option<(Vec<f64>, Option<f64>)> {
 	} else {
 		Some((factor, None))
 	}
+}
+
+/// A baked part going into a mesh: its corners less origin, skinned whole to joint when given.
+struct Piece<'a> {
+	baked: &'a Baked,
+	origin: Option<V3>,
+	joint: Option<u16>,
 }
 
 enum Values {
@@ -193,33 +201,61 @@ impl Glb<'_> {
 	}
 
 	fn mesh(&mut self, baked: &Baked, steps: bool) -> usize {
-		let smooth = if baked.smooth { smooth_normals(&baked.polygons) } else { HashMap::new() };
+		self.mesh_of(&[Piece { baked, origin: None, joint: None }], &baked.name, steps)
+	}
+
+	/// One mesh of one or more baked parts, a primitive per material (in the order the parts first use
+	/// them). A piece's origin is taken off its corners; a piece with a joint is skinned to it, whole.
+	fn mesh_of(&mut self, pieces: &[Piece], name: &str, steps: bool) -> usize {
+		let smooth: Vec<HashMap<usize, V3>> =
+			pieces.iter().map(|p| if p.baked.smooth { smooth_normals(&p.baked.polygons) } else { HashMap::new() }).collect();
+		let mut materials: Vec<&String> = Vec::new();
+		for piece in pieces {
+			for material in &piece.baked.materials {
+				if !materials.contains(&material) {
+					materials.push(material);
+				}
+			}
+		}
+		let skinned = pieces.iter().any(|p| p.joint.is_some());
 		let mut primitives = Vec::new();
-		for material in &baked.materials {
+		for material in materials {
 			let (mut positions, mut normals, mut uvs, mut colours, mut tags, mut indices) =
 				(Vec::new(), Vec::new(), Vec::new(), Vec::<u16>::new(), Vec::new(), Vec::<u32>::new());
-			for polygon in &baked.polygons {
-				if &*polygon.face.material != material.as_str() {
-					continue;
-				}
-				let base = (positions.len() / 3) as u32;
-				let mut flat = polygon.normal;
-				if !baked.smooth && polygon.folded {
-					let t = polygon.triangles[0];
-					let (a, b, c) = (polygon.coords[t[0]], polygon.coords[t[1]], polygon.coords[t[2]]);
-					flat = normalized(cross(sub(b, a), sub(c, a)));
-				}
-				for (k, co) in polygon.coords.iter().enumerate() {
-					let normal = if baked.smooth { smooth[&polygon.ids[k]] } else { flat };
-					positions.extend([co[0], co[2], -co[1]]);
-					normals.extend([normal[0], normal[2], -normal[1]]);
-					uvs.extend([polygon.uvs[k][0], 1.0 - polygon.uvs[k][1]]);
-					let word = colour_word(polygon.colours[k]);
-					colours.extend([word, word, word, 65535]);
-					tags.extend([polygon.step as f64 + 0.5, polygon.origin as f64 + 0.5]);
-				}
-				for triangle in &polygon.triangles {
-					indices.extend(triangle.iter().map(|c| base + *c as u32));
+			let (mut joints, mut weights) = (Vec::<u16>::new(), Vec::<f64>::new());
+			for (piece, smooth) in pieces.iter().zip(&smooth) {
+				let baked = piece.baked;
+				for polygon in &baked.polygons {
+					if &*polygon.face.material != material.as_str() {
+						continue;
+					}
+					let base = (positions.len() / 3) as u32;
+					let mut flat = polygon.normal;
+					if !baked.smooth && polygon.folded {
+						let t = polygon.triangles[0];
+						let (a, b, c) = (polygon.coords[t[0]], polygon.coords[t[1]], polygon.coords[t[2]]);
+						flat = normalized(cross(sub(b, a), sub(c, a)));
+					}
+					for (k, co) in polygon.coords.iter().enumerate() {
+						let normal = if baked.smooth { smooth[&polygon.ids[k]] } else { flat };
+						let co = match piece.origin {
+							Some(o) => sub(*co, o),
+							None => *co,
+						};
+						positions.extend([co[0], co[2], -co[1]]);
+						normals.extend([normal[0], normal[2], -normal[1]]);
+						uvs.extend([polygon.uvs[k][0], 1.0 - polygon.uvs[k][1]]);
+						let word = colour_word(polygon.colours[k]);
+						colours.extend([word, word, word, 65535]);
+						tags.extend([polygon.step as f64 + 0.5, polygon.origin as f64 + 0.5]);
+						if skinned {
+							joints.extend([piece.joint.unwrap_or(0), 0, 0, 0]);
+							weights.extend([1.0, 0.0, 0.0, 0.0]);
+						}
+					}
+					for triangle in &polygon.triangles {
+						indices.extend(triangle.iter().map(|c| base + *c as u32));
+					}
 				}
 			}
 			if positions.is_empty() {
@@ -234,6 +270,10 @@ impl Glb<'_> {
 			if steps {
 				attributes.set("TEXCOORD_1", self.accessor(Values::F32(tags), 2, "VEC2", ARRAY_BUFFER, false, false));
 			}
+			if skinned {
+				attributes.set("JOINTS_0", self.accessor(Values::U16(joints), 4, "VEC4", ARRAY_BUFFER, false, false));
+				attributes.set("WEIGHTS_0", self.accessor(Values::F32(weights), 4, "VEC4", ARRAY_BUFFER, false, false));
+			}
 			let material_index = self.material(material);
 			let wide = count > 65535;
 			let index_values = if wide { Values::U32(indices) } else { Values::U16(indices.into_iter().map(|i| i as u16).collect()) };
@@ -243,8 +283,52 @@ impl Glb<'_> {
 			primitives.push(primitive);
 		}
 		let mut mesh = Json::dict();
-		mesh.set("name", baked.name.as_str()).set("primitives", Json::List(primitives));
+		mesh.set("name", name).set("primitives", Json::List(primitives));
 		list_push(&mut self.json, "meshes", mesh)
+	}
+
+	/// A weighted mesh: one primitive, its corners skinned to up to four joints each.
+	fn weighted_mesh(&mut self, m: &WeightedMesh) -> usize {
+		let positions: Vec<f64> = m.positions.iter().flat_map(|p| [p[0], p[2], -p[1]]).collect();
+		let normals: Vec<f64> = m.normals.iter().flat_map(|n| [n[0], n[2], -n[1]]).collect();
+		let uvs: Vec<f64> = m.uvs.iter().flat_map(|uv| [uv[0], uv[1]]).collect();
+		let joints: Vec<u16> = m.joints.iter().flatten().copied().collect();
+		let weights: Vec<f64> = m.weights.iter().flatten().copied().collect();
+		let mut attributes = Json::dict();
+		attributes.set("POSITION", self.accessor(Values::F32(positions), 3, "VEC3", ARRAY_BUFFER, false, true));
+		if m.normals.len() == m.positions.len() {
+			attributes.set("NORMAL", self.accessor(Values::F32(normals), 3, "VEC3", ARRAY_BUFFER, false, false));
+		}
+		if m.uvs.len() == m.positions.len() {
+			attributes.set("TEXCOORD_0", self.accessor(Values::F32(uvs), 2, "VEC2", ARRAY_BUFFER, false, false));
+		}
+		// white, as every part's mesh has a colour per corner (viewers that shade by it then show the texture as it is)
+		attributes.set("COLOR_0", self.accessor(Values::U16(vec![65535; m.positions.len() * 4]), 4, "VEC4", ARRAY_BUFFER, true, false));
+		attributes.set("JOINTS_0", self.accessor(Values::U16(joints), 4, "VEC4", ARRAY_BUFFER, false, false));
+		attributes.set("WEIGHTS_0", self.accessor(Values::F32(weights), 4, "VEC4", ARRAY_BUFFER, false, false));
+		let material_index = self.material(&m.material);
+		let index_values = if m.positions.len() > 65535 { Values::U32(m.indices.clone()) } else { Values::U16(m.indices.iter().map(|i| *i as u16).collect()) };
+		let indices_index = self.accessor(index_values, 1, "SCALAR", ELEMENT_ARRAY_BUFFER, false, false);
+		let mut primitive = Json::dict();
+		primitive.set("attributes", attributes).set("material", material_index).set("indices", indices_index);
+		let mut mesh = Json::dict();
+		mesh.set("name", m.name.as_str()).set("primitives", Json::List(vec![primitive]));
+		list_push(&mut self.json, "meshes", mesh)
+	}
+
+	/// Data that is not vertex or index data (animation keys, inverse bind matrices): no buffer target.
+	fn data(&mut self, values: Vec<f64>, width: usize, kind: &str, bounds: bool) -> usize {
+		let bytes: Vec<u8> = values.iter().flat_map(|x| pack_f32(*x).to_le_bytes()).collect();
+		let count = values.len() / width;
+		let view = self.view(&bytes, None);
+		let mut entry = Json::dict();
+		entry.set("bufferView", view).set("componentType", FLOAT).set("count", count).set("type", kind);
+		if bounds && count > 0 {
+			let lo: Vec<Json> = (0..width).map(|k| Json::Float(values.chunks(width).map(|v| v[k]).fold(f64::INFINITY, f64::min) as f32 as f64)).collect();
+			let hi: Vec<Json> = (0..width).map(|k| Json::Float(values.chunks(width).map(|v| v[k]).fold(f64::NEG_INFINITY, f64::max) as f32 as f64)).collect();
+			entry.set("min", Json::List(lo)).set("max", Json::List(hi));
+		}
+		list_push(&mut self.json, "accessors", entry)
 	}
 
 	fn to_bytes(mut self) -> Vec<u8> {
@@ -342,6 +426,223 @@ pub fn glb_bytes(asset_id: &str, baked_parts: &[Baked], materials: &HashMap<Stri
 	glb.json.set("nodes", Json::List(nodes));
 	if let Some(Json::List(scenes)) = glb.json.get_mut("scenes") {
 		scenes[0].set("nodes", vec![root]);
+	}
+	let missing = std::mem::take(&mut glb.missing);
+	(glb.to_bytes(), missing)
+}
+
+/// A node of a scene: a part's mesh at its pivot, an empty (a mark), or a joint of a skeleton.
+#[derive(Clone, Debug)]
+pub struct SceneNode {
+	pub name: String,
+	pub parent: Option<usize>,
+	/// local to the parent, in the authoring axes
+	pub translation: V3,
+	pub rotation: Quat,
+	pub scale: V3,
+	pub mesh: Option<SceneMesh>,
+	/// an index into the scene's skins (for the node holding a skinned mesh)
+	pub skin: Option<usize>,
+	pub extras: Option<Json>,
+}
+
+impl SceneNode {
+	pub fn new(name: &str, parent: Option<usize>) -> SceneNode {
+		SceneNode { name: name.to_string(), parent, translation: [0.0; 3], rotation: QUAT_IDENTITY, scale: [1.0; 3], mesh: None, skin: None, extras: None }
+	}
+}
+
+#[derive(Clone, Debug)]
+pub enum SceneMesh {
+	/// one baked part, its corners less origin (where its node sits, in prop space)
+	Part { baked: usize, origin: V3 },
+	/// baked parts as one mesh in prop space, each part skinned whole to a joint (an index into the skin's joints)
+	Skinned { name: String, parts: Vec<(usize, u16)> },
+	/// a mesh of its own, each corner weighted to up to four joints (an imported character's smooth skin)
+	Weighted(WeightedMesh),
+}
+
+/// Corners with their own joints and weights, in prop space and the authoring axes (Z up).
+#[derive(Clone, Debug, Default)]
+pub struct WeightedMesh {
+	pub name: String,
+	/// a key into the materials, looked up like any part's
+	pub material: String,
+	pub positions: Vec<V3>,
+	pub normals: Vec<V3>,
+	/// texture coordinates as glTF has them (v runs down the image)
+	pub uvs: Vec<[f64; 2]>,
+	/// per corner: indices into the skin's joints, and how much each moves it (summing to 1)
+	pub joints: Vec<[u16; 4]>,
+	pub weights: Vec<[f64; 4]>,
+	/// three corners a triangle
+	pub indices: Vec<u32>,
+}
+
+/// A skeleton: joints are node indices; the inverse bind matrices come from the nodes' rest transforms.
+#[derive(Clone, Debug)]
+pub struct Skin {
+	pub name: String,
+	pub joints: Vec<usize>,
+	pub skeleton: Option<usize>,
+}
+
+/// Everything a rigged .glb holds beyond the meshes: the node tree, skins, clips and scene extras.
+#[derive(Clone, Debug, Default)]
+pub struct Scene {
+	pub nodes: Vec<SceneNode>,
+	pub skins: Vec<Skin>,
+	pub clips: Vec<Clip>,
+	pub extras: Option<Json>,
+}
+
+impl Scene {
+	/// A node's rest transform in prop space (its parents' composed with its own), in the authoring axes.
+	pub fn global(&self, node: usize) -> M4 {
+		let n = &self.nodes[node];
+		let local = trs_matrix(n.translation, n.rotation, n.scale);
+		match n.parent {
+			Some(p) => self.global(p).mul(&local),
+			None => local,
+		}
+	}
+}
+
+fn floats(values: &[f64]) -> Json {
+	Json::List(values.iter().map(|v| Json::Float(*v as f32 as f64)).collect())
+}
+
+/// The authoring-to-glTF axis change as a matrix: (x, y, z) -> (x, z, -y).
+const AXES: M4 = M4([[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]);
+const AXES_BACK: M4 = M4([[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]);
+
+/// (the .glb, textures it could not find) for a scene: its nodes in order (node i is glTF node i), each
+/// root node (no parent) in the scene, skins with their inverse bind matrices, and each clip as an
+/// animation with its events in extras. glb_bytes() is the plain one-node-per-part layout.
+#[allow(clippy::too_many_arguments)]
+pub fn glb_scene(baked_parts: &[Baked], scene: &Scene, materials: &HashMap<String, Mat>, textures: &dyn Fn(&str) -> Option<Vec<u8>>, steps: bool,
+	material_prefix: &str) -> (Vec<u8>, Vec<String>) {
+	let mut json = Json::dict();
+	let mut asset = Json::dict();
+	asset.set("generator", "partscript").set("version", "2.0");
+	let roots: Vec<i64> = scene.nodes.iter().enumerate().filter(|(_, n)| n.parent.is_none()).map(|(i, _)| i as i64).collect();
+	let mut scene_json = Json::dict();
+	scene_json.set("name", "Scene").set("nodes", roots);
+	if let Some(extras) = &scene.extras {
+		scene_json.set("extras", extras.clone());
+	}
+	let mut sampler = Json::dict();
+	sampler.set("magFilter", NEAREST).set("minFilter", NEAREST_MIPMAP_NEAREST);
+	json.set("asset", asset).set("scene", 0i64).set("scenes", Json::List(vec![scene_json])).set("nodes", Json::List(vec![]))
+		.set("materials", Json::List(vec![])).set("meshes", Json::List(vec![])).set("skins", Json::List(vec![]))
+		.set("animations", Json::List(vec![])).set("textures", Json::List(vec![])).set("images", Json::List(vec![]))
+		.set("samplers", Json::List(vec![sampler])).set("accessors", Json::List(vec![])).set("bufferViews", Json::List(vec![]))
+		.set("buffers", Json::List(vec![]));
+	let mut glb = Glb { materials, textures, material_prefix, json, blob: Vec::new(), material_index: HashMap::new(), images: HashMap::new(),
+		missing: Vec::new() };
+	let mut nodes = Vec::new();
+	for (index, n) in scene.nodes.iter().enumerate() {
+		let mut node = Json::dict();
+		node.set("name", n.name.as_str());
+		match &n.mesh {
+			Some(SceneMesh::Part { baked, origin }) => {
+				let part = &baked_parts[*baked];
+				let mesh = glb.mesh_of(&[Piece { baked: part, origin: Some(*origin), joint: None }], &part.name, steps);
+				node.set("mesh", mesh);
+			}
+			Some(SceneMesh::Skinned { name, parts }) => {
+				let pieces: Vec<Piece> = parts.iter().map(|(b, j)| Piece { baked: &baked_parts[*b], origin: None, joint: Some(*j) }).collect();
+				let mesh = glb.mesh_of(&pieces, name, steps);
+				node.set("mesh", mesh);
+			}
+			Some(SceneMesh::Weighted(weighted)) => {
+				let mesh = glb.weighted_mesh(weighted);
+				node.set("mesh", mesh);
+			}
+			None => {}
+		}
+		if let Some(skin) = n.skin {
+			node.set("skin", skin);
+		}
+		if n.translation != [0.0; 3] {
+			node.set("translation", floats(&gltf_vec(n.translation)));
+		}
+		if n.rotation != QUAT_IDENTITY {
+			node.set("rotation", floats(&gltf_quat(n.rotation)));
+		}
+		if n.scale != [1.0; 3] {
+			node.set("scale", floats(&gltf_scale(n.scale)));
+		}
+		let children: Vec<i64> = scene.nodes.iter().enumerate().filter(|(_, c)| c.parent == Some(index)).map(|(i, _)| i as i64).collect();
+		if !children.is_empty() {
+			node.set("children", children);
+		}
+		if let Some(extras) = &n.extras {
+			node.set("extras", extras.clone());
+		}
+		nodes.push(node);
+	}
+	glb.json.set("nodes", Json::List(nodes));
+	for skin in &scene.skins {
+		let mut matrices = Vec::with_capacity(skin.joints.len() * 16);
+		for &joint in &skin.joints {
+			let global = AXES.mul(&scene.global(joint)).mul(&AXES_BACK);
+			let inverse = global.inverted().unwrap_or(M4::IDENTITY);
+			for c in 0..4 {
+				for r in 0..4 {
+					matrices.push(inverse.0[r][c]);
+				}
+			}
+		}
+		let accessor = glb.data(matrices, 16, "MAT4", false);
+		let mut entry = Json::dict();
+		entry.set("name", skin.name.as_str()).set("inverseBindMatrices", accessor).set("joints", skin.joints.iter().map(|j| *j as i64).collect::<Vec<i64>>());
+		if let Some(root) = skin.skeleton {
+			entry.set("skeleton", root);
+		}
+		list_push(&mut glb.json, "skins", entry);
+	}
+	for clip in &scene.clips {
+		let (mut samplers, mut channels) = (Vec::new(), Vec::new());
+		let mut inputs: HashMap<Vec<u64>, usize> = HashMap::new();
+		for track in &clip.tracks {
+			if track.keys.is_empty() {
+				continue;
+			}
+			let times: Vec<f64> = track.keys.iter().map(|k| k.t).collect();
+			let bits: Vec<u64> = times.iter().map(|t| (*t as f32).to_bits() as u64).collect();
+			let input = match inputs.get(&bits) {
+				Some(&i) => i,
+				None => {
+					let i = glb.data(times, 1, "SCALAR", true);
+					inputs.insert(bits, i);
+					i
+				}
+			};
+			let mut values = Vec::with_capacity(track.keys.len() * track.channel.width());
+			for key in &track.keys {
+				match track.channel {
+					crate::anim::Channel::Translation => values.extend(gltf_vec([key.v[0], key.v[1], key.v[2]])),
+					crate::anim::Channel::Scale => values.extend(gltf_scale([key.v[0], key.v[1], key.v[2]])),
+					crate::anim::Channel::Rotation => values.extend(gltf_quat(key.v)),
+				}
+			}
+			let output = glb.data(values, track.channel.width(), if track.channel.width() == 4 { "VEC4" } else { "VEC3" }, false);
+			let mut sampler = Json::dict();
+			sampler.set("input", input).set("output", output).set("interpolation", track.interp.gltf());
+			samplers.push(sampler);
+			let mut target = Json::dict();
+			target.set("node", track.node).set("path", track.channel.gltf());
+			let mut channel = Json::dict();
+			channel.set("sampler", samplers.len() - 1).set("target", target);
+			channels.push(channel);
+		}
+		let mut animation = Json::dict();
+		animation.set("name", clip.name.as_str()).set("channels", Json::List(channels)).set("samplers", Json::List(samplers));
+		if let Some(extras) = clip.extras_json() {
+			animation.set("extras", extras);
+		}
+		list_push(&mut glb.json, "animations", animation);
 	}
 	let missing = std::mem::take(&mut glb.missing);
 	(glb.to_bytes(), missing)

@@ -203,6 +203,7 @@ pub fn check(program: &Program, host: &Host) -> Report {
 		if prop.kind == "building" {
 			tris += check_building(program, prop, host, &mut context);
 		}
+		context.errors.extend(rig_errors(prop));
 		let mut prop_warnings = context.warnings.clone();
 		let budget = prop_budget(prop);
 		if tris > budget as i64 {
@@ -268,6 +269,71 @@ pub fn check(program: &Program, host: &Host) -> Report {
 	let mut dressing: Vec<String> = program.dressing.keys().map(str::to_string).collect();
 	dressing.sort();
 	Report { prefix, props: props_out, errors, warnings, materials_checked: materials.is_some(), styles, dressing }
+}
+
+/// A prop's node tree: every parent= and on= names a part of the prop, parents do not go round in a circle,
+/// and (once a prop has pivots, parents or marks) no two nodes share a name.
+fn rig_errors(prop: &Prop) -> Vec<String> {
+	fn walk<'a>(body: &'a [Rc<Stmt>], out: &mut Vec<&'a Stmt>) {
+		for stmt in body {
+			if stmt.op == "part" || stmt.op == "mark" {
+				out.push(stmt);
+			}
+			if let Some(block) = &stmt.block {
+				walk(block, out);
+			}
+		}
+	}
+	let mut stmts = Vec::new();
+	walk(&prop.body, &mut stmts);
+	let rigged = stmts.iter().any(|s| s.op == "mark" || s.opts.contains("pivot") || s.opts.contains("parent"));
+	if !rigged {
+		return vec![];
+	}
+	let name_of = |s: &Stmt| s.args.first().cloned().unwrap_or_default();
+	let parts: Vec<(String, &Stmt)> = stmts.iter().filter(|s| s.op == "part").map(|s| (name_of(s), *s)).collect();
+	let mut errors = Vec::new();
+	let mut seen: HashMap<String, String> = HashMap::new();
+	seen.insert(prop.name.clone(), format!("{}:{}", prop.file, prop.line));
+	for stmt in &stmts {
+		let name = name_of(stmt);
+		if name.is_empty() {
+			continue;
+		}
+		if let Some(before) = seen.get(&name) {
+			errors.push(format!("{}: {name} names two nodes of the prop (also {before}): a rig needs one name per part and mark", stmt.where_()));
+		} else {
+			seen.insert(name.clone(), stmt.where_());
+		}
+	}
+	let parent_of = |name: &str| parts.iter().find(|(n, _)| n == name).and_then(|(_, s)| s.opt("parent")).map(str::to_string);
+	for stmt in &stmts {
+		let key = if stmt.op == "part" { "parent" } else { "on" };
+		let Some(target) = stmt.opt(key) else { continue };
+		if target.is_empty() {
+			continue;
+		}
+		if !parts.iter().any(|(n, _)| n == target) {
+			let mut names: Vec<&str> = parts.iter().map(|(n, _)| n.as_str()).collect();
+			names.sort();
+			errors.push(format!("{}: {key}={target}: no part of that name in {} (parts: {})", stmt.where_(), prop.name, names.join(", ")));
+			continue;
+		}
+		if stmt.op == "part" {
+			let mut chain = vec![name_of(stmt)];
+			let mut at = Some(target.to_string());
+			while let Some(next) = at {
+				if chain.contains(&next) {
+					chain.push(next);
+					errors.push(format!("{}: parents go round in a circle ({})", stmt.where_(), chain.join(" -> ")));
+					break;
+				}
+				chain.push(next.clone());
+				at = parent_of(&next);
+			}
+		}
+	}
+	errors
 }
 
 /// Walks statements without building to count triangles and find bad names.
@@ -612,7 +678,33 @@ impl Ctx<'_> {
 				}
 				return Ok(sum.saturating_mul(self.copies(stmt, env) as i64));
 			}
-			"part" | "size" | "card" => {
+			"part" => {
+				if let Some(pivot) = o.get("pivot") {
+					self.vec(stmt, pivot, env, 3);
+				}
+				if o.get("parent").is_some_and(|p| p.is_empty()) {
+					self.fail(stmt, "parent= names the part this one hangs from (part bolt parent=receiver)");
+				}
+				return Ok(0);
+			}
+			"mark" => {
+				let named = a.len() == 1 && a[0].chars().next().is_some_and(|c| c.is_ascii_alphabetic() || c == '_') && a[0].chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+				if !named {
+					self.fail(stmt, "mark NAME at=X,Y,Z [on=PART] [turn=X,Y,Z]: one name, letters, digits and _ (Muzzle, eject)");
+				}
+				let mut unknown: Vec<&str> = o.keys().filter(|k| !["at", "on", "turn", "r"].contains(k)).collect();
+				if !unknown.is_empty() {
+					unknown.sort();
+					self.fail(stmt, format!("mark takes at= on= turn= (not {})", unknown.join(", ")));
+				}
+				for key in ["at", "turn", "r"] {
+					if let Some(v) = o.get(key) {
+						self.vec(stmt, v, env, 3);
+					}
+				}
+				return Ok(0);
+			}
+			"size" | "card" => {
 				if op == "card" {
 					let mut unknown: Vec<&str> = o.keys().filter(|k| !["what", "where", "pairs", "look", "avoid", "notes"].contains(k)).collect();
 					if !unknown.is_empty() {
@@ -1084,7 +1176,7 @@ impl Ctx<'_> {
 					}
 				}
 				for child in stmt.block.iter().flatten() {
-					if !child.name.is_empty() || matches!(child.op.as_str(), "part" | "snap" | "join" | "link" | "chain") || BUILD_OPS.contains(&child.op.as_str()) {
+					if !child.name.is_empty() || matches!(child.op.as_str(), "part" | "mark" | "snap" | "join" | "link" | "chain") || BUILD_OPS.contains(&child.op.as_str()) {
 						let what = if child.name.is_empty() { py::repr_str(&child.op) } else { format!("{} = ...", child.name) };
 						self.fail(child, format!("{what} can't go in a row or stack (name the row itself: books = row x ...)"));
 					}
